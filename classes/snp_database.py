@@ -36,14 +36,41 @@ class SnpDatabase(object):
                     pos = int(toks[self.F_POS])
 
                     if rs_id not in self.snp_map[chro]:
-                        self.snp_map[chro][rs_id] = pos
+                        self.snp_map[chro][rs_id] = {'position': pos}
                         self.snp_map_pos[chro][pos] = rs_id
                         self.probe_id_map[chro][probe_id] = rs_id
 
             f.close()
 
-    def get_rs_id(self, probe_id):
-        return self.probe_id_map.get(probe_id)
+    def load_missing_info(self, path, lmiss_regex='_(\d+)\.lmiss'):
+        p = re.compile(lmiss_regex)
+        files = filter(lambda name: p.match(name), os.listdir(path))
 
-    def get_position(self, rs_id):
-        return self.snp_map.get(rs_id)
+        for i in range(1, 23):
+            chro = str(i)
+            file_name = filter(lambda name: p.match(name).groups(0)[0] == chro, files)[0]
+            self.__load_lmiss_out(chro, os.path.join(path, file_name))
+
+    def __load_lmiss_out(self, chro, file_path):
+        with (gzip.open(file_path, 'r') if file_path.endswith('.gz') else open(file_path, 'r')) as f:
+            f.readline()  # skip header
+            for line in f:
+                toks = filter(None, line.split(' '))
+                # fields: CHR SNP N_MISS N_GENO F_MISS
+                rs_id = toks[1]
+                data = self.get_snp_data(chro, rs_id)
+                if data is not None:
+                    data['lmiss'] = {'N_MISS': int(toks[2]), 'N_GENO': int(toks[3]), 'F_MISS': float(toks[4])}
+                else:
+                    print 'lmiss: %(snp)s in chr %(chr)s not found' % {'snp': rs_id, 'chr': chro}
+
+            f.close()
+
+    def get_rs_id(self, chro, probe_id):
+        return self.probe_id_map[chro].get(probe_id)
+
+    def get_snp_data(self, chro, rs_id):
+        return self.snp_map[chro].get(rs_id)
+
+    def get_position(self, chro, rs_id):
+        return self.get_snp_data(chro, rs_id)['position']

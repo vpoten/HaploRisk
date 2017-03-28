@@ -40,10 +40,11 @@ if __name__ == "__main__":
 
     db = SnpDatabase()
     db.load_from_birdseed(birdseed_base, '8090939')
+    db.load_missing_info(os.path.join(birdseed_base, 'missing_output'))
 
     target_missing_stats = load_missing_stats(os.path.join(birdseed_base, 'missing_output/missing_stats.txt'))
 
     confs_file = os.path.join(crlmm_base, 'crlmm_out/confs.txt')
-    confidences = load_oligo_confidences(confs_file)
+    # confidences = load_oligo_confidences(confs_file)
 
     print 'Finished:', datetime.datetime.now().isoformat()
