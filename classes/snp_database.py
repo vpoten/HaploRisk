@@ -74,3 +74,9 @@ class SnpDatabase(object):
 
     def get_position(self, chro, rs_id):
         return self.get_snp_data(chro, rs_id)['position']
+
+    def get_snp_ids(self, chro):
+        return self.snp_map[chro].keys()
+
+    def get_probe_ids(self, chro):
+        return self.probe_id_map[chro].keys()
