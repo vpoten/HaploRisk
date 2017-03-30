@@ -1,6 +1,9 @@
 import os
 import datetime
 from classes.snp_database import SnpDatabase
+from scipy import stats
+import numpy as np
+import matplotlib.pyplot as plt
 
 
 def load_missing_stats(path):
@@ -49,10 +52,57 @@ def calc_missing_threshold(chro, snp_db, oligo_confs):
             continue
 
         pos = lmiss_data['N_MISS'] - 1
-        threshold = sorted(values)[pos] if pos >= 0 else None
-        snp_thresholds[probe_id] = threshold if threshold is not None else -1
+        threshold = None
+
+        if pos >= 0:
+            values = sorted(values)
+            zscores = stats.zscore(np.array(values))
+            threshold = (values[pos], zscores[pos])
+
+        snp_thresholds[probe_id] = threshold if threshold is not None else (-1, -1)
 
     return snp_thresholds
+
+
+def write_threshold_result(chro, snp_thresholds, snp_db):
+    f = open(os.path.join(crlmm_base, 'snp_thresholds_chr%s.txt' % chro), 'w')
+    f.write('chro\tprobe_id\tsnp_id\tthreshold\tnorm_thr\tf_miss\n')
+    for probe_id in snp_thresholds:
+        rs_id = db.get_rs_id(chro, probe_id)
+        lmiss_data = snp_db.get_snp_data(chro, rs_id).get('lmiss')
+        threshold = snp_thresholds[probe_id]
+        f.write(chro + '\t' + probe_id + '\t' + rs_id + '\t')
+        f.write(str(threshold[0]) + '\t' + str(threshold[1]) + '\t' + str(lmiss_data['F_MISS']) + '\n')
+    f.close()
+
+
+def violin_plot(data):
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
+
+    # generate some random test data
+    all_data = [np.array(values) for values in data]
+
+    # plot violin plot
+    axes[0].violinplot(all_data,
+                       showmeans=False,
+                       showmedians=True)
+    axes[0].set_title('violin plot')
+
+    # plot box plot
+    axes[1].boxplot(all_data)
+    axes[1].set_title('box plot')
+
+    # adding horizontal grid lines
+    for ax in axes:
+        ax.yaxis.grid(True)
+        ax.set_xticks([y + 1 for y in range(len(all_data))])
+        ax.set_xlabel('xlabel')
+        ax.set_ylabel('ylabel')
+
+    # add x-tick labels
+    plt.setp(axes, xticks=[y + 1 for y in range(len(all_data))],
+             xticklabels=['x1', 'x2', 'x3', 'x4'])
+    plt.show()
 
 
 if __name__ == "__main__":
@@ -72,12 +122,8 @@ if __name__ == "__main__":
 
     chro = '1'
     snp_thresholds = calc_missing_threshold(chro, db, confidences)
+    write_threshold_result(chro, snp_thresholds, db)
 
-    f = open(os.path.join(crlmm_base, 'snp_thresholds.txt'), 'w')
-    f.write('chro\tprobe_id\tsnp_id\tthreshold\n')
-    for probe_id in snp_thresholds:
-        rs_id = db.get_rs_id(chro, probe_id)
-        f.write(chro + '\t' + probe_id + '\t' + rs_id + '\t' + str(snp_thresholds[probe_id]) + '\n')
-    f.close()
+    violin_plot(confidences['confidences'].get('SNP_A-8460085'))
 
     print 'Finished:', datetime.datetime.now().isoformat()
