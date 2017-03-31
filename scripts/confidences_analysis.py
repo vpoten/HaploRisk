@@ -68,7 +68,7 @@ def write_threshold_result(chro, snp_thresholds, snp_db):
     f = open(os.path.join(crlmm_base, 'snp_thresholds_chr%s.txt' % chro), 'w')
     f.write('chro\tprobe_id\tsnp_id\tthreshold\tnorm_thr\tf_miss\n')
     for probe_id in snp_thresholds:
-        rs_id = db.get_rs_id(chro, probe_id)
+        rs_id = snp_db.get_rs_id(chro, probe_id)
         lmiss_data = snp_db.get_snp_data(chro, rs_id).get('lmiss')
         threshold = snp_thresholds[probe_id]
         f.write(chro + '\t' + probe_id + '\t' + rs_id + '\t')
@@ -76,32 +76,62 @@ def write_threshold_result(chro, snp_thresholds, snp_db):
     f.close()
 
 
-def violin_plot(data):
-    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
+def violin_plot(data_missing, data_no_missing):
+    fig, axes = plt.subplots(nrows=2, ncols=1, figsize=(12, 5))
 
-    # generate some random test data
-    all_data = [np.array(values) for values in data]
-
-    # plot violin plot
-    axes[0].violinplot(all_data,
+    # plot snps with missing
+    axes[0].violinplot(data_missing.values(),
                        showmeans=False,
                        showmedians=True)
-    axes[0].set_title('violin plot')
+    axes[0].set_title('SNPs with missing')
 
-    # plot box plot
-    axes[1].boxplot(all_data)
-    axes[1].set_title('box plot')
+    # plot snps with no missing
+    axes[1].violinplot(data_no_missing.values(),
+                       showmeans=False,
+                       showmedians=True)
+    axes[1].set_title('SNPs no missing')
 
     # adding horizontal grid lines
     for ax in axes:
         ax.yaxis.grid(True)
-        ax.set_xticks([y + 1 for y in range(len(all_data))])
-        ax.set_xlabel('xlabel')
-        ax.set_ylabel('ylabel')
 
     # add x-tick labels
-    plt.setp(axes, xticks=[y + 1 for y in range(len(all_data))],
-             xticklabels=['x1', 'x2', 'x3', 'x4'])
+    for idx, val in enumerate([data_missing, data_no_missing]):
+        plt.setp(axes[idx], xticks=[y + 1 for y in range(len(val))], xticklabels=val.keys())
+    plt.show()
+
+
+def get_zscores(probe_id, confidences):
+    return stats.zscore(np.array(confidences['confidences'].get(probe_id)))
+
+
+def plot_fmiss_vs_threshold(chro, snp_thresholds, snp_db):
+    x = []
+    y = []
+    y_norm = []
+
+    for probe_id in snp_thresholds:
+        rs_id = snp_db.get_rs_id(chro, probe_id)
+        lmiss_data = snp_db.get_snp_data(chro, rs_id).get('lmiss')
+        if lmiss_data['N_MISS'] == 0:
+            continue
+        thrs = snp_thresholds[probe_id]
+        x.append(lmiss_data['F_MISS'])
+        y.append(thrs[0])
+        y_norm.append(thrs[1])
+
+    fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(12, 5))
+
+    axes[0].scatter(x, y, s=[1 for i in range(len(x))])
+    axes[0].set_title('Missing rate vs threshold')
+
+    axes[1].scatter(x, y_norm, s=[1 for i in range(len(x))])
+    axes[1].set_title('Missing rate vs norm. threshold')
+
+    for ax in axes:
+        ax.set_xlabel('missing rate birdseed')
+        ax.set_ylabel('threshold crlmm')
+
     plt.show()
 
 
@@ -124,6 +154,14 @@ if __name__ == "__main__":
     snp_thresholds = calc_missing_threshold(chro, db, confidences)
     write_threshold_result(chro, snp_thresholds, db)
 
-    violin_plot(confidences['confidences'].get('SNP_A-8460085'))
+    snps_missing = ['SNP_A-8358491', 'SNP_A-2187372', 'SNP_A-4246654', 'SNP_A-2026459', 'SNP_A-8630776',
+                    'SNP_A-8673051', 'SNP_A-1961190', 'SNP_A-8327571']
+    snps_no_missing = ['SNP_A-4250282', 'SNP_A-4290848', 'SNP_A-8426563', 'SNP_A-1899510', 'SNP_A-2060328',
+                       'SNP_A-1802035', 'SNP_A-4275453', 'SNP_A-8609627']
+
+    violin_plot({db.get_rs_id(chro, id): get_zscores(id, confidences) for id in snps_missing},
+                {db.get_rs_id(chro, id): get_zscores(id, confidences) for id in snps_no_missing})
+
+    plot_fmiss_vs_threshold(chro, snp_thresholds, db)
 
     print 'Finished:', datetime.datetime.now().isoformat()
