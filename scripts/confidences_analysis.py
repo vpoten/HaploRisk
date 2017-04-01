@@ -159,8 +159,13 @@ if __name__ == "__main__":
     snps_no_missing = ['SNP_A-4250282', 'SNP_A-4290848', 'SNP_A-8426563', 'SNP_A-1899510', 'SNP_A-2060328',
                        'SNP_A-1802035', 'SNP_A-4275453', 'SNP_A-8609627']
 
+    # plot violin graphs of normalized confidences
     violin_plot({db.get_rs_id(chro, id): get_zscores(id, confidences) for id in snps_missing},
                 {db.get_rs_id(chro, id): get_zscores(id, confidences) for id in snps_no_missing})
+
+    # plot violin graph of non normalized confidences
+    violin_plot({db.get_rs_id(chro, id): confidences['confidences'].get(id) for id in snps_missing},
+                {db.get_rs_id(chro, id): confidences['confidences'].get(id) for id in snps_no_missing})
 
     plot_fmiss_vs_threshold(chro, snp_thresholds, db)
 
