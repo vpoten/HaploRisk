@@ -1,5 +1,6 @@
 import os
 import datetime
+import gzip
 from classes.snp_database import SnpDatabase
 from scipy import stats
 import numpy as np
@@ -21,18 +22,36 @@ def load_missing_stats(path):
 
 def load_oligo_confidences(path):
     sep_char = ' '
-    f = open(path, 'r')
+    f = gzip.open(path, 'r')
 
     header = f.readline()
     subjects = map(lambda s: os.path.splitext(os.path.basename(s[1:-1]))[0], header.split(sep_char))
 
-    confidences = {}
+    confidences = {}  # dict with key=probe_id and value=list of confidences
     for line in f:
         toks = line.split(sep_char)
         confidences[toks[0][1:-1]] = map(lambda i: float(toks[i]), range(1, len(toks)))
 
     f.close()
     return {'subjects': subjects, 'confidences': confidences}
+
+
+def load_birdseed_summary_intensities(path):
+    sep_char = '\t'
+    f = gzip.open(path, 'r')
+
+    intensities = {}  # dict with key=probe_id and value=np.array of intensities
+    for line in f:
+        if line.startswith('#'):
+            continue  # skip comment
+        elif line.startswith('probeset_id'):
+            subjects = map(lambda s: os.path.splitext(s)[0], line.split(sep_char)[1:])
+        else:
+            toks = line.split(sep_char)
+            intensities[toks[0]] = np.array(map(lambda i: float(i), toks[1:]))
+
+    f.close()
+    return {'subjects': subjects, 'intensities': intensities}
 
 
 def calc_missing_threshold(chro, snp_db, oligo_confs):
@@ -64,8 +83,8 @@ def calc_missing_threshold(chro, snp_db, oligo_confs):
     return snp_thresholds
 
 
-def write_threshold_result(chro, snp_thresholds, snp_db):
-    f = open(os.path.join(crlmm_base, 'snp_thresholds_chr%s.txt' % chro), 'w')
+def write_threshold_result(out_dir, chro, snp_thresholds, snp_db):
+    f = open(os.path.join(out_dir, 'snp_thresholds_chr%s.txt' % chro), 'w')
     f.write('chro\tprobe_id\tsnp_id\tthreshold\tnorm_thr\tf_miss\n')
     for probe_id in snp_thresholds:
         rs_id = snp_db.get_rs_id(chro, probe_id)
@@ -135,11 +154,9 @@ def plot_fmiss_vs_threshold(chro, snp_thresholds, snp_db):
     plt.show()
 
 
-if __name__ == "__main__":
+def oligo_vs_birdseed_missing_threshold_cmp():
     birdseed_base = '/home/victor/Escritorio/matesanz2015'
     crlmm_base = '/home/victor/Escritorio/Genotipado_Alternativo/data'
-
-    print 'Started:', datetime.datetime.now().isoformat()
 
     db = SnpDatabase()
     db.load_from_birdseed(birdseed_base, '8090939')
@@ -147,12 +164,12 @@ if __name__ == "__main__":
 
     target_missing_stats = load_missing_stats(os.path.join(birdseed_base, 'missing_output/missing_stats.txt'))
 
-    confs_file = os.path.join(crlmm_base, 'crlmm_out/confs.txt')
+    confs_file = os.path.join(crlmm_base, 'crlmm_out/confs.txt.gz')
     confidences = load_oligo_confidences(confs_file)
 
     chro = '1'
     snp_thresholds = calc_missing_threshold(chro, db, confidences)
-    write_threshold_result(chro, snp_thresholds, db)
+    write_threshold_result(crlmm_base, chro, snp_thresholds, db)
 
     snps_missing = ['SNP_A-8358491', 'SNP_A-2187372', 'SNP_A-4246654', 'SNP_A-2026459', 'SNP_A-8630776',
                     'SNP_A-8673051', 'SNP_A-1961190', 'SNP_A-8327571']
@@ -168,5 +185,16 @@ if __name__ == "__main__":
                 {db.get_rs_id(chro, id): confidences['confidences'].get(id) for id in snps_no_missing})
 
     plot_fmiss_vs_threshold(chro, snp_thresholds, db)
+
+
+if __name__ == "__main__":
+    print 'Started:', datetime.datetime.now().isoformat()
+
+    birdseed_base = '/home/victor/Escritorio/matesanz2015'
+    birdseed2_base = '/home/victor/Escritorio/Genotipado_Alternativo/data/birdseed_out'
+
+    db = SnpDatabase()
+    db.load_from_birdseed(birdseed_base, '8090939')
+    intensities = load_birdseed_summary_intensities(os.path.join(birdseed2_base, 'birdseed-dev.summary.txt.gz'))
 
     print 'Finished:', datetime.datetime.now().isoformat()
