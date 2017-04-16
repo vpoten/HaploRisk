@@ -2,6 +2,8 @@ import os
 import datetime
 import gzip
 from classes.snp_database import SnpDatabase
+from classes.tfam import Tfam
+from classes.intensities import Intensities
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
@@ -34,24 +36,6 @@ def load_oligo_confidences(path):
 
     f.close()
     return {'subjects': subjects, 'confidences': confidences}
-
-
-def load_birdseed_summary_intensities(path):
-    sep_char = '\t'
-    f = gzip.open(path, 'r')
-
-    intensities = {}  # dict with key=probe_id and value=np.array of intensities
-    for line in f:
-        if line.startswith('#'):
-            continue  # skip comment
-        elif line.startswith('probeset_id'):
-            subjects = map(lambda s: os.path.splitext(s)[0], line.split(sep_char)[1:])
-        else:
-            toks = line.split(sep_char)
-            intensities[toks[0]] = np.array(map(lambda i: float(i), toks[1:]))
-
-    f.close()
-    return {'subjects': subjects, 'intensities': intensities}
 
 
 def calc_missing_threshold(chro, snp_db, oligo_confs):
@@ -193,8 +177,10 @@ if __name__ == "__main__":
     birdseed_base = '/home/victor/Escritorio/matesanz2015'
     birdseed2_base = '/home/victor/Escritorio/Genotipado_Alternativo/data/birdseed_out'
 
+    tfam = Tfam(os.path.join(birdseed_base, 'matesanz2015.tfam'))
     db = SnpDatabase()
     db.load_from_birdseed(birdseed_base, '8090939')
-    intensities = load_birdseed_summary_intensities(os.path.join(birdseed2_base, 'birdseed-dev.summary.txt.gz'))
+    intensities = Intensities.load_birdseed_summary_intensities(
+        os.path.join(birdseed2_base, 'birdseed-dev.summary.txt.gz'))
 
     print 'Finished:', datetime.datetime.now().isoformat()
