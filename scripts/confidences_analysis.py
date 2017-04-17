@@ -2,8 +2,6 @@ import os
 import datetime
 import gzip
 from classes.snp_database import SnpDatabase
-from classes.tfam import Tfam
-from classes.intensities import Intensities
 from scipy import stats
 import numpy as np
 import matplotlib.pyplot as plt
@@ -173,14 +171,5 @@ def oligo_vs_birdseed_missing_threshold_cmp():
 
 if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
-
-    birdseed_base = '/home/victor/Escritorio/matesanz2015'
-    birdseed2_base = '/home/victor/Escritorio/Genotipado_Alternativo/data/birdseed_out'
-
-    tfam = Tfam(os.path.join(birdseed_base, 'matesanz2015.tfam'))
-    db = SnpDatabase()
-    db.load_from_birdseed(birdseed_base, '8090939')
-    intensities = Intensities.load_birdseed_summary_intensities(
-        os.path.join(birdseed2_base, 'birdseed-dev.summary.txt.gz'))
-
+    oligo_vs_birdseed_missing_threshold_cmp()
     print 'Finished:', datetime.datetime.now().isoformat()
