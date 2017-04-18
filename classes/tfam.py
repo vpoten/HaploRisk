@@ -44,7 +44,7 @@ class Tfam(object):
         return self.offspring
 
     def get_parents_index(self, subjects):
-        map(lambda pid: subjects.index(pid), self.parents)
+        return map(lambda pid: subjects.index(pid), self.parents)
 
     def get_offspring_index(self, subjects):
-        map(lambda oid: subjects.index(oid), self.offspring)
+        return map(lambda oid: subjects.index(oid), self.offspring)
