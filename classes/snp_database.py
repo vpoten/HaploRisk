@@ -13,6 +13,7 @@ class SnpDatabase(object):
         self.snp_map = {}  # rs_id to position
         self.snp_map_pos = {}  # position to rs_id
         self.probe_id_map = {}  # probe_id to rs_id
+        self.probe_id_map_direct = {}  # probe_id to rs_id
 
     def load_from_birdseed(self, path, subject):
         p = re.compile(subject + '\.birdseed-v2.(\w+)\.txt\.gz')
@@ -39,6 +40,7 @@ class SnpDatabase(object):
                         self.snp_map[chro][rs_id] = {'position': pos}
                         self.snp_map_pos[chro][pos] = rs_id
                         self.probe_id_map[chro][probe_id] = rs_id
+                        self.probe_id_map_direct[probe_id] = rs_id
 
             f.close()
 
@@ -67,6 +69,8 @@ class SnpDatabase(object):
             f.close()
 
     def get_rs_id(self, chro, probe_id):
+        if chro is None:
+            return self.probe_id_map_direct[probe_id]
         return self.probe_id_map[chro].get(probe_id)
 
     def get_snp_data(self, chro, rs_id):

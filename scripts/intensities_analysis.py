@@ -31,15 +31,16 @@ MISSING_NEGATIVE = [
     "SNP_A-8311383"
 ]
 
-y_offset = 1e-5
-kde_bandwith = 75
+y_offset = -1e-4
+kde_bandwith = 25
+kde_kernel = 'gaussian'
 min_x = 0
 max_x = 2250
 parent_mark = 'ro'
 children_mark = 'b+'
 
 
-def plot_a_b_intensities(probe_id, intensities, parents_index, offspring_index):
+def plot_a_b_intensities(probe_id, rs_id, intensities, parents_index, offspring_index):
     A = intensities.get(probe_id + '-A')
     B = intensities.get(probe_id + '-B')
 
@@ -51,17 +52,26 @@ def plot_a_b_intensities(probe_id, intensities, parents_index, offspring_index):
 
     fig, axes = plt.subplots(nrows=3, ncols=2, sharex='all', sharey='all')
 
+    fig.suptitle(probe_id + ' (' + rs_id + ')')
+    fig.subplots_adjust(hspace=0.4)
+
     y_parents = np.zeros(num_parents) + y_offset
     y_children = np.zeros(num_children) + y_offset
 
     for col, intens in enumerate([A, B]):
+        allele = 'A' if col == 0 else 'B'
+
         axes[0, col].plot(intens[parents_index], y_parents, parent_mark)
+        axes[0, col].set_title('parents (%s)' % allele)
         fit_gaussian_kde(intens[parents_index], axes[0, col])
 
         axes[1, col].plot(intens[offspring_index], y_children, children_mark)
+        axes[1, col].set_title('children (%s)' % allele)
         fit_gaussian_kde(intens[offspring_index], axes[1, col])
 
-        axes[2, col].plot(intens[parents_index], y_parents, parent_mark, intens[offspring_index], y_children, children_mark)
+        axes[2, col].plot(intens[parents_index], y_parents, parent_mark, intens[offspring_index], y_children,
+                          children_mark)
+        axes[2, col].set_title('all (%s)' % allele)
         fit_gaussian_kde(intens, axes[2, col])
 
     plt.show()
@@ -70,7 +80,7 @@ def plot_a_b_intensities(probe_id, intensities, parents_index, offspring_index):
 def fit_gaussian_kde(intens, ax):
     X = intens[:, np.newaxis]
     X_plot = np.linspace(min_x, max_x, 1000)[:, np.newaxis]
-    kde = KernelDensity(kernel='gaussian', bandwidth=kde_bandwith).fit(X)
+    kde = KernelDensity(kernel=kde_kernel, bandwidth=kde_bandwith).fit(X)
     log_dens = kde.score_samples(X_plot)
     ax.plot(X_plot[:, 0], np.exp(log_dens), 'k-')
 
@@ -91,6 +101,7 @@ if __name__ == "__main__":
     offspring_index = np.array(tfam.get_offspring_index(intensities['subjects']))
 
     probe_id = 'SNP_A-1975121'  # MISSING_POSITIVE[0]
-    plot_a_b_intensities(probe_id, intensities['intensities'], parents_index, offspring_index)
+    plot_a_b_intensities(probe_id, db.get_rs_id(None, probe_id), intensities['intensities'], parents_index,
+                         offspring_index)
 
     print 'Finished:', datetime.datetime.now().isoformat()
