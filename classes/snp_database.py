@@ -70,7 +70,7 @@ class SnpDatabase(object):
 
     def get_rs_id(self, chro, probe_id):
         if chro is None:
-            return self.probe_id_map_direct[probe_id]
+            return self.probe_id_map_direct.get(probe_id)
         return self.probe_id_map[chro].get(probe_id)
 
     def get_snp_data(self, chro, rs_id):

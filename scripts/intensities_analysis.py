@@ -38,9 +38,10 @@ min_x = 0
 max_x = 2250
 parent_mark = 'ro'
 children_mark = 'b+'
+fig_dpi = 150
 
 
-def plot_a_b_intensities(probe_id, rs_id, intensities, parents_index, offspring_index):
+def plot_a_b_intensities(probe_id, rs_id, intensities, parents_index, offspring_index, to_file=None):
     A = intensities.get(probe_id + '-A')
     B = intensities.get(probe_id + '-B')
 
@@ -50,9 +51,9 @@ def plot_a_b_intensities(probe_id, rs_id, intensities, parents_index, offspring_
 
     assert total == num_children + num_parents
 
-    fig, axes = plt.subplots(nrows=3, ncols=2, sharex='all', sharey='all')
+    fig, axes = plt.subplots(nrows=3, ncols=2, sharex='all', sharey='all', figsize=(8, 8))
 
-    fig.suptitle(probe_id + ' (' + rs_id + ')')
+    fig.suptitle(probe_id + '\n' + rs_id if rs_id else '?')
     fig.subplots_adjust(hspace=0.4)
 
     y_parents = np.zeros(num_parents) + y_offset
@@ -74,6 +75,10 @@ def plot_a_b_intensities(probe_id, rs_id, intensities, parents_index, offspring_
         axes[2, col].set_title('all (%s)' % allele)
         fit_gaussian_kde(intens, axes[2, col])
 
+    if to_file is not None:
+        fig.savefig(to_file, dpi=fig_dpi)
+        return
+
     plt.show()
 
 
@@ -90,18 +95,23 @@ if __name__ == "__main__":
 
     birdseed_base = '/home/victor/Escritorio/matesanz2015'
     birdseed2_base = '/home/victor/Escritorio/Genotipado_Alternativo/data/birdseed_out'
+    out_dir = '/home/victor/Escritorio/Genotipado_Alternativo/data/intens_out'
 
     tfam = Tfam(os.path.join(birdseed_base, 'matesanz2015.tfam'))
     db = SnpDatabase()
     db.load_from_birdseed(birdseed_base, '8090939')
     intensities = Intensities.load_birdseed_summary_intensities(
-        os.path.join(birdseed2_base, 'birdseed-dev.summary.txt.gz'), limit=500)
+        os.path.join(birdseed2_base, 'birdseed-dev.summary.txt.gz'), limit=-1)
 
     parents_index = np.array(tfam.get_parents_index(intensities['subjects']))
     offspring_index = np.array(tfam.get_offspring_index(intensities['subjects']))
 
-    probe_id = 'SNP_A-1975121'  # MISSING_POSITIVE[0]
-    plot_a_b_intensities(probe_id, db.get_rs_id(None, probe_id), intensities['intensities'], parents_index,
-                         offspring_index)
+    samples_sets = {'PosDiff': MISSING_POSITIVE, 'NegDiff': MISSING_NEGATIVE}
+
+    for label in {'PosDiff': MISSING_POSITIVE, 'NegDiff': MISSING_NEGATIVE}:
+        for probe_id in samples_sets[label]:
+            to_file = os.path.join(out_dir, probe_id + label + '.png')
+            plot_a_b_intensities(probe_id, db.get_rs_id(None, probe_id), intensities['intensities'], parents_index,
+                                 offspring_index, to_file=to_file)
 
     print 'Finished:', datetime.datetime.now().isoformat()
