@@ -9,11 +9,40 @@ class SnpDatabase(object):
     F_RSID = 8
     F_POS = 9
 
+    # UCSC dbSNP file fields
+    F_UCSC_RSID = 4
+    F_UCSC_POS = 2
+    F_UCSC_CHR = 1
+
     def __init__(self):
         self.snp_map = {}  # rs_id to position
         self.snp_map_pos = {}  # position to rs_id
         self.probe_id_map = {}  # probe_id to rs_id
         self.probe_id_map_direct = {}  # probe_id to rs_id
+
+    def load_from_ucsc_db_snp(self, file_path):
+        valid_chrs = [str(i) for i in range(1, 23)] + ['X', 'Y']
+
+        with (gzip.open(file_path, 'r') if file_path.endswith('.gz') else open(file_path, 'r')) as f:
+            for line in f:
+                toks = line.split('\t')
+                rs_id = toks[self.F_UCSC_RSID]
+                pos = int(toks[self.F_UCSC_POS])
+                chro = toks[self.F_UCSC_CHR][3:]
+
+                if chro not in valid_chrs:
+                    continue
+
+                if chro not in self.snp_map:
+                    self.snp_map[chro] = {}
+                    self.snp_map_pos[chro] = {}
+
+                if rs_id not in self.snp_map[chro]:
+                    self.snp_map[chro][rs_id] = {'position': pos}
+                    self.snp_map_pos[chro][pos] = rs_id
+
+            f.close()
+
 
     def load_from_birdseed(self, path, subject):
         p = re.compile(subject + '\.birdseed-v2.(\w+)\.txt\.gz')
