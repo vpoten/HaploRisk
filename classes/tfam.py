@@ -27,15 +27,23 @@ class Tfam(object):
                               phenotype=toks[5])
             self.subjects[iid] = subject
 
-            if subject.father == '0' and subject.mother == '0':
+            if self.is_parent(subject):
                 self.parents.append(subject.id)
             else:
                 self.offspring.append(subject.id)
 
         f.close()
 
-    def get_subject(self, id):
-        return self.subjects.get(id)
+    @classmethod
+    def is_parent(cls, subject):
+        return subject.father == '0' and subject.mother == '0'
+
+    def get_subject(self, iid):
+        return self.subjects.get(iid)
+
+    def get_subject_from_fam(self, fields):
+        iid = fields[1]
+        return self.get_subject(iid)
 
     def get_parents(self):
         return self.parents
