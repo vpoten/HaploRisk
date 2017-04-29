@@ -1,12 +1,14 @@
 import os
 import datetime
 import re
+import sys
 from classes.snp_database import SnpDatabase
 from classes.tfam import Tfam
 
 # constants
 ped_file_name_regex = '_(\d+)'
 missing_char = '?'  # char code for missing
+window_sizes = [1e6, 500000, 250000, 100000, 50000, 20000, 10000]
 
 
 def load_gwas_snps(path):
@@ -78,6 +80,15 @@ def check_missing_with_plink_results(snp_db, gwas_snps):
             assert data['lmiss']['N_MISS'] == (snp['missing_par'] + snp['missing_child'])
             count += 1
         print 'chr', chro, count, 'checked'
+
+
+def human_format(num):
+    magnitude = 0
+    while abs(num) >= 1000:
+        magnitude += 1
+        num /= 1000.0
+        # add more suffixes if you need them
+    return '%i%s' % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])
 
 
 if __name__ == "__main__":
