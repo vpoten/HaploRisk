@@ -43,7 +43,6 @@ class SnpDatabase(object):
 
             f.close()
 
-
     def load_from_birdseed(self, path, subject):
         p = re.compile(subject + '\.birdseed-v2.(\w+)\.txt\.gz')
         files = filter(lambda name: p.match(name), os.listdir(path))
@@ -97,6 +96,25 @@ class SnpDatabase(object):
 
             f.close()
 
+    def load_from_map_files(self, path, ped_file_name_regex):
+        p = re.compile(ped_file_name_regex + '\.map')
+        map_files = filter(lambda name: p.match(name), os.listdir(path))
+
+        for map_file in map_files:
+            chro = p.match(map_file).groups()[0]
+            self.snp_map[chro] = {}
+            self.snp_map_pos[chro] = {}
+
+            f = open(os.path.join(path, map_file), 'r')
+            for line in f:
+                toks = line.split('\t')
+                rs_id = toks[1]
+                pos = int(toks[3])
+                if rs_id not in self.snp_map[chro]:
+                    self.snp_map[chro][rs_id] = {'position': pos}
+                    self.snp_map_pos[chro][pos] = rs_id
+            f.close()
+
     def get_rs_id(self, chro, probe_id):
         if chro is None:
             return self.probe_id_map_direct.get(probe_id)
@@ -113,3 +131,7 @@ class SnpDatabase(object):
 
     def get_probe_ids(self, chro):
         return self.probe_id_map[chro].keys()
+
+    def print_stats(self):
+        for chro in self.snp_map:
+            print "Chr", chro, len(self.snp_map[chro]), 'snps'
