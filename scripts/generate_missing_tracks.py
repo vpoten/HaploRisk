@@ -122,15 +122,24 @@ def human_format(num):
     return '%i%s' % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])
 
 
-def chr_missing_windows(chro, snp_db, window_size):
+def chr_missing_windows(chro, snp_db, window_size, pos_field):
     chr_size = hg38_CHR_SIZES[chro]
     num_windows = int(chr_size / window_size) + (1 if int(chr_size % window_size) > 0 else 0)
+    miss_fields = ['missing_par', 'missing_child']
+    bins = [{'missing_par': 0, 'missing_child': 0, 'count': 0} for i in range(0, num_windows)]
 
-    for i in range(0, num_windows):
-        min_pos = i * window_size
-        max_pos = (i+1) * window_size
-        snps_in_window = snp_db.get_snps_in_region(chro, min_pos, max_pos)
+    for snp in snp_db.get_chr_data(chro):
+        bin_idx = int(snp[pos_field]/window_size)
+        for f in miss_fields:
+            bins[bin_idx][f] += snp['lmiss'][f]
+        bins[bin_idx]['count'] += 1.0
 
+    for bin in bins:
+        denom = bin['count']
+        if denom > 0:
+            for f in miss_fields:
+                bin[f] /= denom
+    return bins
 
 
 if __name__ == "__main__":

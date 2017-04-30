@@ -38,7 +38,7 @@ class SnpDatabase(object):
                     self.snp_map_pos[chro] = {}
 
                 if rs_id not in self.snp_map[chro]:
-                    self.snp_map[chro][rs_id] = {'position': pos}
+                    self.snp_map[chro][rs_id] = {'id': rs_id, 'position': pos}
                     self.snp_map_pos[chro][pos] = rs_id
 
             f.close()
@@ -85,7 +85,7 @@ class SnpDatabase(object):
                     pos = int(toks[self.F_POS])
 
                     if rs_id not in self.snp_map[chro]:
-                        self.snp_map[chro][rs_id] = {'position': pos}
+                        self.snp_map[chro][rs_id] = {'id': rs_id, 'position': pos}
                         self.snp_map_pos[chro][pos] = rs_id
                         self.probe_id_map[chro][probe_id] = rs_id
                         self.probe_id_map_direct[probe_id] = rs_id
@@ -131,7 +131,7 @@ class SnpDatabase(object):
                 rs_id = toks[1]
                 pos = int(toks[3])
                 if rs_id not in self.snp_map[chro]:
-                    self.snp_map[chro][rs_id] = {'position': pos}
+                    self.snp_map[chro][rs_id] = {'id': rs_id, 'position': pos}
                     self.snp_map_pos[chro][pos] = rs_id
             f.close()
 
@@ -142,6 +142,9 @@ class SnpDatabase(object):
 
     def get_snp_data(self, chro, rs_id):
         return self.snp_map[chro].get(rs_id)
+
+    def get_chr_data(self, chro):
+        return self.snp_map[chro].values()
 
     def get_position(self, chro, rs_id):
         return self.get_snp_data(chro, rs_id)['position']
