@@ -43,6 +43,26 @@ class SnpDatabase(object):
 
             f.close()
 
+    def add_ucsc_db_snp_position(self, file_path, new_field_name):
+        valid_chrs = self.snp_map.keys()
+
+        with (gzip.open(file_path, 'r') if file_path.endswith('.gz') else open(file_path, 'r')) as f:
+            for line in f:
+                toks = line.split('\t')
+                rs_id = toks[self.F_UCSC_RSID]
+                pos = int(toks[self.F_UCSC_POS])
+                chro = toks[self.F_UCSC_CHR][3:]
+
+                if chro not in valid_chrs:
+                    continue
+
+                data = self.get_snp_data(chro, rs_id)
+
+                if data is not None:
+                    data[new_field_name] = pos
+
+            f.close()
+
     def load_from_birdseed(self, path, subject):
         p = re.compile(subject + '\.birdseed-v2.(\w+)\.txt\.gz')
         files = filter(lambda name: p.match(name), os.listdir(path))
@@ -135,3 +155,7 @@ class SnpDatabase(object):
     def print_stats(self):
         for chro in self.snp_map:
             print "Chr", chro, len(self.snp_map[chro]), 'snps'
+
+    def get_snps_in_region(self, chro, min_pos, max_pos, pos_field='position'):
+        chr_snps = self.snp_map[chro]
+        return filter(lambda rs_id: max_pos > chr_snps[rs_id][pos_field] >= min_pos, chr_snps)

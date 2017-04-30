@@ -6,9 +6,37 @@ from classes.snp_database import SnpDatabase
 from classes.tfam import Tfam
 
 # constants
-ped_file_name_regex = '_(\d+)'
-missing_char = '?'  # char code for missing
-window_sizes = [1e6, 500000, 250000, 100000, 50000, 20000, 10000]
+PED_FILE_NAME_REGEX = '_(\d+)'
+MISSING_CHAR = '?'  # char code for missing
+WINDOW_SIZES = [1e6, 500000, 250000, 100000, 50000, 20000, 10000]
+HG38_POS = 'hg38_pos'  # hg38 position field
+
+hg38_CHR_SIZES = {
+    '1': 248956422,
+    '2': 242193529,
+    '3': 198295559,
+    '4': 190214555,
+    '5': 181538259,
+    '6': 170805979,
+    '7': 159345973,
+    'X': 156040895,
+    '8': 145138636,
+    '9': 138394717,
+    '11': 135086622,
+    '10': 133797422,
+    '12': 133275309,
+    '13': 114364328,
+    '14': 107043718,
+    '15': 101991189,
+    '16': 90338345,
+    '17': 83257441,
+    '18': 80373285,
+    '20': 64444167,
+    '19': 58617616,
+    'Y': 57227415,
+    '22': 50818468,
+    '21': 46709983
+}
 
 
 def load_gwas_snps(path):
@@ -19,7 +47,7 @@ def load_gwas_snps(path):
     """
     gwas_snps = {}
 
-    p = re.compile(ped_file_name_regex + '\.map')
+    p = re.compile(PED_FILE_NAME_REGEX + '\.map')
     map_files = filter(lambda name: p.match(name), os.listdir(path))
 
     for map_file in map_files:
@@ -43,7 +71,7 @@ def load_missing_info_from_ped(path, gwas_snps, tfam):
     :param tfam: 
     :return: 
     """
-    p = re.compile(ped_file_name_regex + '\.ped')
+    p = re.compile(PED_FILE_NAME_REGEX + '\.ped')
     ped_files = filter(lambda name: p.match(name), os.listdir(path))
 
     # count missing data
@@ -59,7 +87,7 @@ def load_missing_info_from_ped(path, gwas_snps, tfam):
 
             for i, snp in enumerate(chro_snps):
                 idx = 6 + i * 2
-                if toks[idx] == missing_char:
+                if toks[idx] == MISSING_CHAR:
                     snp[missing_count_field] += 1
 
         f.close()
@@ -79,6 +107,9 @@ def check_missing_with_plink_results(snp_db, gwas_snps):
             data = snp_db.get_snp_data(chro, snp['id'])
             assert data['lmiss']['N_MISS'] == (snp['missing_par'] + snp['missing_child'])
             count += 1
+            # add extra info to snp_db
+            data['lmiss']['missing_par'] = snp['missing_par']
+            data['lmiss']['missing_child'] = snp['missing_child']
         print 'chr', chro, count, 'checked'
 
 
@@ -91,6 +122,17 @@ def human_format(num):
     return '%i%s' % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])
 
 
+def chr_missing_windows(chro, snp_db, window_size):
+    chr_size = hg38_CHR_SIZES[chro]
+    num_windows = int(chr_size / window_size) + (1 if int(chr_size % window_size) > 0 else 0)
+
+    for i in range(0, num_windows):
+        min_pos = i * window_size
+        max_pos = (i+1) * window_size
+        snps_in_window = snp_db.get_snps_in_region(chro, min_pos, max_pos)
+
+
+
 if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
 
@@ -100,14 +142,13 @@ if __name__ == "__main__":
     tfam = Tfam(os.path.join(imsgc_dbgap_base, 'IMSGC_dbgap.tfam'))
 
     # downloaded from: ftp://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/snp147Common.txt.gz
-    db_snp_hg38 = '/home/victor/Escritorio/Genotipado_Alternativo/data/dbSNP/snp147Common.txt.gz'
-    # db_hg38 = SnpDatabase()
-    # db_hg38.load_from_ucsc_db_snp(db_snp_hg38)
+    db_snp_hg38 = '/home/victor/Escritorio/Genotipado_Alternativo/data/dbSNP/snp147.txt.gz'
 
     db_imsgc_snps = SnpDatabase()
-    db_imsgc_snps.load_from_map_files(ped_files_path, ped_file_name_regex)
+    db_imsgc_snps.load_from_map_files(ped_files_path, PED_FILE_NAME_REGEX)
     db_imsgc_snps.load_missing_info(os.path.join(imsgc_dbgap_base, 'missing_output'))
     db_imsgc_snps.print_stats()
+    db_imsgc_snps.add_ucsc_db_snp_position(db_snp_hg38, HG38_POS)
 
     gwas_snps = load_gwas_snps(ped_files_path)
     load_missing_info_from_ped(ped_files_path, gwas_snps, tfam)
