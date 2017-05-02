@@ -162,3 +162,22 @@ class SnpDatabase(object):
     def get_snps_in_region(self, chro, min_pos, max_pos, pos_field='position'):
         chr_snps = self.snp_map[chro]
         return filter(lambda rs_id: max_pos > chr_snps[rs_id][pos_field] >= min_pos, chr_snps)
+
+    def write_position(self, file_path, pos_field):
+        f = open(file_path, 'w')
+        for chro in self.snp_map:
+            for snp in self.snp_map[chro].values():
+                f.write(snp['id'] + '\t' + chro + '\t' + snp[pos_field] + '\n')
+        f.close()
+
+    def read_position(self, file_path, pos_field):
+        f = open(file_path, 'r')
+        for line in f:
+            toks = line.split('\t')
+            rs_id = toks[0]
+            chro = toks[1]
+            pos = int(toks[2])
+            data = self.get_snp_data(chro, rs_id)
+            if data is not None:
+                data[pos_field] = pos
+        f.close()

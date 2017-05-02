@@ -8,7 +8,7 @@ from classes.tfam import Tfam
 # constants
 PED_FILE_NAME_REGEX = '_(\d+)'
 MISSING_CHAR = '?'  # char code for missing
-WINDOW_SIZES = [1e6, 500000, 250000, 100000, 50000, 20000, 10000]
+WINDOW_SIZES = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
 HG38_POS = 'hg38_pos'  # hg38 position field
 
 hg38_CHR_SIZES = {
@@ -129,17 +129,25 @@ def chr_missing_windows(chro, snp_db, window_size, pos_field):
     bins = [{'missing_par': 0, 'missing_child': 0, 'count': 0} for i in range(0, num_windows)]
 
     for snp in snp_db.get_chr_data(chro):
-        bin_idx = int(snp[pos_field]/window_size)
+        bin_idx = int(snp[pos_field] / window_size)
         for f in miss_fields:
             bins[bin_idx][f] += snp['lmiss'][f]
         bins[bin_idx]['count'] += 1.0
 
     for bin in bins:
+        # calculate mean on each bin
         denom = bin['count']
         if denom > 0:
             for f in miss_fields:
                 bin[f] /= denom
     return bins
+
+
+def generate_missing_tracks(snp_db, pos_field):
+    chrs = [str(i) for i in range(1, 23)]  # valid chromosomes
+    tracks = {human_format(wsize): {chro: chr_missing_windows(chro, snp_db, wsize, pos_field) for chro in chrs} for
+              wsize in WINDOW_SIZES}
+    return tracks
 
 
 if __name__ == "__main__":
