@@ -167,7 +167,8 @@ class SnpDatabase(object):
         f = open(file_path, 'w')
         for chro in self.snp_map:
             for snp in self.snp_map[chro].values():
-                f.write(snp['id'] + '\t' + chro + '\t' + snp[pos_field] + '\n')
+                if snp.get(pos_field) is not None:
+                    f.write(snp['id'] + '\t' + chro + '\t' + str(snp[pos_field]) + '\n')
         f.close()
 
     def read_position(self, file_path, pos_field):

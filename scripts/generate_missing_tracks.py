@@ -150,6 +150,24 @@ def generate_missing_tracks(snp_db, pos_field):
     return tracks
 
 
+def write_bed_graph(track, base_file_path, window_size):
+    chrs = [str(i) for i in range(1, 23)]  # valid chromosomes
+    miss_tracks = {'parents': 'missing_par', 'children': 'missing_child'}
+
+    for miss_track in miss_tracks:
+        miss_field = miss_tracks[miss_track]
+        file_name = base_file_path + '_' + miss_track
+        f = open(file_name, 'w')
+        for chro in chrs:
+            bins = track[chro]
+            for i, bin in enumerate(bins):
+                min_pos = i * window_size
+                # TODO
+                f.write('\n')
+
+        f.close()
+
+
 if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
 
@@ -160,12 +178,19 @@ if __name__ == "__main__":
 
     # downloaded from: ftp://hgdownload.soe.ucsc.edu/goldenPath/hg38/database/snp147Common.txt.gz
     db_snp_hg38 = '/home/victor/Escritorio/Genotipado_Alternativo/data/dbSNP/snp147.txt.gz'
+    # cache of hg38 positions for IMSGC gwas snps
+    imsgc_gwas_positions = '/home/victor/Escritorio/Genotipado_Alternativo/data/dbSNP/imsgc_hg38_pos.txt'
 
     db_imsgc_snps = SnpDatabase()
     db_imsgc_snps.load_from_map_files(ped_files_path, PED_FILE_NAME_REGEX)
     db_imsgc_snps.load_missing_info(os.path.join(imsgc_dbgap_base, 'missing_output'))
     db_imsgc_snps.print_stats()
-    db_imsgc_snps.add_ucsc_db_snp_position(db_snp_hg38, HG38_POS)
+
+    if os.path.isfile(imsgc_gwas_positions):
+        db_imsgc_snps.read_position(imsgc_gwas_positions, HG38_POS)
+    else:
+        db_imsgc_snps.add_ucsc_db_snp_position(db_snp_hg38, HG38_POS)
+        db_imsgc_snps.write_position(imsgc_gwas_positions, HG38_POS)
 
     gwas_snps = load_gwas_snps(ped_files_path)
     load_missing_info_from_ped(ped_files_path, gwas_snps, tfam)
