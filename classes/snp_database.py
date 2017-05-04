@@ -45,7 +45,7 @@ class SnpDatabase(object):
 
     def add_ucsc_db_snp_position(self, file_path, new_field_name):
         valid_chrs = self.snp_map.keys()
-
+        count_chr_snps = {chro: {'count': 0} for chro in valid_chrs}
         with (gzip.open(file_path, 'r') if file_path.endswith('.gz') else open(file_path, 'r')) as f:
             for line in f:
                 toks = line.split('\t')
@@ -59,9 +59,14 @@ class SnpDatabase(object):
                 data = self.get_snp_data(chro, rs_id)
 
                 if data is not None:
+                    count_chr_snps[chro]['count'] += 1
                     data[new_field_name] = pos
 
             f.close()
+        print 'Add UCSC dbSNP position:'
+        # print number of snps read
+        for chro in count_chr_snps:
+            print 'Chr', chro, count_chr_snps[chro]['count']
 
     def load_from_birdseed(self, path, subject):
         p = re.compile(subject + '\.birdseed-v2.(\w+)\.txt\.gz')

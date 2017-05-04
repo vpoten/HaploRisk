@@ -100,6 +100,7 @@ def check_missing_with_plink_results(snp_db, gwas_snps):
     :param gwas_snps: 
     :return: 
     """
+    print 'Check missing with plink results:'
     for chro in gwas_snps:
         chro_snps = gwas_snps[chro]
         count = 0
@@ -129,7 +130,10 @@ def chr_missing_windows(chro, snp_db, window_size, pos_field):
     bins = [{'missing_par': 0, 'missing_child': 0, 'count': 0} for i in range(0, num_windows)]
 
     for snp in snp_db.get_chr_data(chro):
-        bin_idx = int(snp[pos_field] / window_size)
+        position = snp.get(pos_field)
+        if position is None:
+            continue
+        bin_idx = int(position / window_size)
         for f in miss_fields:
             bins[bin_idx][f] += snp['lmiss'][f]
         bins[bin_idx]['count'] += 1.0
@@ -195,5 +199,7 @@ if __name__ == "__main__":
     gwas_snps = load_gwas_snps(ped_files_path)
     load_missing_info_from_ped(ped_files_path, gwas_snps, tfam)
     check_missing_with_plink_results(db_imsgc_snps, gwas_snps)
+
+    tracks = generate_missing_tracks(db_imsgc_snps, HG38_POS)
 
     print 'Finished:', datetime.datetime.now().isoformat()
