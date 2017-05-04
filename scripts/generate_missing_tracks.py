@@ -166,9 +166,12 @@ def write_bed_graph(track, base_file_path, window_size):
             bins = track[chro]
             for i, bin in enumerate(bins):
                 min_pos = i * window_size
-                # TODO
-                f.write('\n')
-
+                max_pos = min_pos + window_size
+                if max_pos >= hg38_CHR_SIZES[chro]:
+                    max_pos = hg38_CHR_SIZES[chro]
+                value = bin[miss_field]
+                # format: chrom chromStart chromEnd dataValue
+                f.write(chro + '\t' + str(min_pos) + '\t' + str(max_pos) + '\t' + str(value) + '\n')
         f.close()
 
 
@@ -201,5 +204,8 @@ if __name__ == "__main__":
     check_missing_with_plink_results(db_imsgc_snps, gwas_snps)
 
     tracks = generate_missing_tracks(db_imsgc_snps, HG38_POS)
+    for track in tracks:
+        # TODO <-----
+        write_bed_graph(track, base_file_path, window_size)
 
     print 'Finished:', datetime.datetime.now().isoformat()
