@@ -125,14 +125,11 @@ def human_format(num):
     return '%i%s' % (num, ['', 'K', 'M', 'G', 'T', 'P'][magnitude])
 
 
-def chr_missing_windows(chro, snp_db, window_size, pos_field, tfam):
+def chr_missing_windows(chro, snp_db, window_size, pos_field):
     chr_size = hg38_CHR_SIZES[chro]
     num_windows = int(chr_size / window_size) + (1 if int(chr_size % window_size) > 0 else 0)
     miss_fields = ['missing_par', 'missing_child']
     bins = [{'missing_par': 0, 'missing_child': 0, 'count': 0} for i in range(0, num_windows)]
-
-    num_parents = 1.0 / len(tfam.get_parents())
-    num_children = 1.0 / len(tfam.get_offspring())
 
     for snp in snp_db.get_chr_data(chro):
         position = snp.get(pos_field)
@@ -149,18 +146,17 @@ def chr_missing_windows(chro, snp_db, window_size, pos_field, tfam):
         if denom > 0:
             for f in miss_fields:
                 bin[f] /= denom
-                bin[f] *= (num_parents if f == 'missing_par' else num_children)
     return bins
 
 
-def generate_missing_tracks(snp_db, pos_field, tfam):
+def generate_missing_tracks(snp_db, pos_field):
     chrs = [str(i) for i in range(1, 23)]  # valid chromosomes
-    tracks = {human_format(wsize): {chro: chr_missing_windows(chro, snp_db, wsize, pos_field, tfam) for chro in chrs}
+    tracks = {human_format(wsize): {chro: chr_missing_windows(chro, snp_db, wsize, pos_field) for chro in chrs}
               for wsize in WINDOW_SIZES}
     return tracks
 
 
-def write_bed_graph(track, base_file_path, window_size):
+def write_bed_graph(track, base_file_path, wsize):
     chrs = [str(i) for i in range(1, 23)]  # valid chromosomes
     miss_tracks = {'parents': 'missing_par', 'children': 'missing_child'}
 
@@ -170,18 +166,40 @@ def write_bed_graph(track, base_file_path, window_size):
         f = open(file_name, 'w')
 
         # write header
-        f.write('track type=bedGraph name="Missing ' + miss_track + ' ' + human_format(window_size) + '"\n')
+        f.write('track type=bedGraph name="Missing ' + miss_track + ' ' + human_format(wsize) + '"\n')
 
         for chro in chrs:
             bins = track[chro]
             for i, bin in enumerate(bins):
-                min_pos = int(i * window_size)
-                max_pos = int(min_pos + window_size)
+                min_pos = int(i * wsize)
+                max_pos = int(min_pos + wsize)
                 if max_pos >= hg38_CHR_SIZES[chro]:
                     max_pos = hg38_CHR_SIZES[chro]
                 value = bin[miss_field]
                 # format: chrom chromStart chromEnd dataValue
                 f.write('chr' + chro + '\t' + str(min_pos) + '\t' + str(max_pos) + '\t' + str(value) + '\n')
+        f.close()
+        # gzip output file
+        subprocess.call(['gzip', '-f', file_name])
+
+
+def write_wig(track, base_file_path, wsize):
+    chrs = [str(i) for i in range(1, 23)]  # valid chromosomes
+    miss_tracks = {'parents': 'missing_par', 'children': 'missing_child'}
+
+    for miss_track in miss_tracks:
+        miss_field = miss_tracks[miss_track]
+        file_name = base_file_path + '_' + miss_track + '.wig'
+        f = open(file_name, 'w')
+
+        for chro in chrs:
+            # write header
+            f.write('track type=wiggle_0 name="Missing ' + miss_track + ' ' + human_format(wsize) + '"\n')
+            f.write('fixedStep chrom=chr%s start=0 step=%i span=%i\n' % (chro, int(wsize), int(wsize)))
+
+            bins = track[chro]
+            for bin in bins:
+                f.write(str(bin[miss_field]) + '\n')
         f.close()
         # gzip output file
         subprocess.call(['gzip', '-f', file_name])
@@ -215,12 +233,12 @@ if __name__ == "__main__":
     load_missing_info_from_ped(ped_files_path, gwas_snps, tfam)
     check_missing_with_plink_results(db_imsgc_snps, gwas_snps)
 
-    tracks = generate_missing_tracks(db_imsgc_snps, HG38_POS, tfam)
+    tracks = generate_missing_tracks(db_imsgc_snps, HG38_POS)
     out_dir_tracks = '/home/victor/Escritorio/Genotipado_Alternativo/data/out_hg38_tracks'
 
     for wsize in WINDOW_SIZES:
         hf_wsize = human_format(wsize)
         base_file_path = os.path.join(out_dir_tracks, hf_wsize)
-        write_bed_graph(tracks[hf_wsize], base_file_path, wsize)
+        write_wig(tracks[hf_wsize], base_file_path, wsize)
 
     print 'Finished:', datetime.datetime.now().isoformat()
