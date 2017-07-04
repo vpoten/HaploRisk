@@ -1,6 +1,10 @@
 import os
 import subprocess
 
+"""
+Merge datasets using plink
+"""
+
 PLINK = 'plink'
 CHRS = [str(i) for i in range(1, 23)]
 
