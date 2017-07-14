@@ -69,5 +69,6 @@ def read_map(map_file, chr_snps):
 
 
 if __name__ == "__main__":
-    ped_file = sys.argv[0]
+    # ped_file = sys.argv[0]
     # TODO
+    pass
