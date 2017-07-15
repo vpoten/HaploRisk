@@ -1,6 +1,7 @@
 import os
 import datetime
 from classes.ensembl_client import EnsemblRestClient
+from classes.gene_database import GeneDatabase
 
 
 def load_lines(file_name):
@@ -44,10 +45,14 @@ if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
 
     # snps_ids = load_lines(file_name)
+    taxonomy_id = '9606'
     snps_ids = ['rs12722489', 'rs6897932', 'rs6498169', 'rs6604026', 'rs10984447']
 
     client = EnsemblRestClient()
     snps = client.get_snps(snps_ids)
     regions = get_regions_from_ensembl_snps(snps)
+
+    genes_db = GeneDatabase(taxonomy_id)
+    genes_db.load_mart_export('/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion/GRCh38/mart_export.txt.gz')
 
     print 'Finished:', datetime.datetime.now().isoformat()
