@@ -41,6 +41,15 @@ def is_in_region(region, chr, start, end, wsize):
     return None
 
 
+def count_genes_in_region(genes, genes_db, region, wsize):
+    count = 0
+    for gene_id in genes:
+        gene_data = genes_db.get_by_id(gene_id)
+        if is_in_region(region, gene_data.chr, gene_data.start, gene_data.end, wsize):
+            count += 1
+    return count
+
+
 if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
 
