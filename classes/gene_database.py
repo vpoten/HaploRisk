@@ -50,3 +50,10 @@ class GeneDatabase(object):
 
     def get_chr_genes(self, chr):
         return self.chr_index.get(chr)
+
+    def get_difference(self, gene_ids):
+        diff_set = []
+        for db_id in self.gene_index:
+            if db_id not in gene_ids:
+                diff_set.append(db_id)
+        return diff_set

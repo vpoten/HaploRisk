@@ -2,6 +2,7 @@ import os
 import datetime
 from classes.ensembl_client import EnsemblRestClient
 from classes.gene_database import GeneDatabase
+import scipy.stats as stats
 
 
 def load_lines(file_name):
@@ -53,15 +54,29 @@ def count_genes_in_region(genes, genes_db, region, wsize):
 if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
 
-    # snps_ids = load_lines(file_name)
+    base_path = '/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion'
+
     taxonomy_id = '9606'
-    snps_ids = ['rs12722489', 'rs6897932', 'rs6498169', 'rs6604026', 'rs10984447']
+    snps_ids = load_lines(os.path.join(base_path, 'MS.txt'))
+    gene_ids = load_lines(os.path.join(base_path, 'sp140_genes.txt'))
 
     client = EnsemblRestClient()
     snps = client.get_snps(snps_ids)
     regions = get_regions_from_ensembl_snps(snps)
 
     genes_db = GeneDatabase(taxonomy_id)
-    genes_db.load_mart_export('/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion/GRCh38/mart_export.txt.gz')
+    genes_db.load_mart_export(os.path.join(base_path, 'GRCh38/mart_export.txt.gz'))
+
+    control_gene_ids = genes_db.get_difference(gene_ids)
+
+    wsize = 500000
+    b1 = count_genes_in_region(gene_ids, genes_db, regions.get('GRCh38'), wsize)
+    n1 = len(gene_ids)
+    b2 = count_genes_in_region(control_gene_ids, genes_db, regions.get('GRCh38'), wsize)
+    n2 = len(control_gene_ids)
+    print 'b: %i, n: %i' % (b1, n1)
+    print 'B: %i, N: %i' % (b2, n2)
+    oddsratio, pvalue = stats.fisher_exact([[b1, n1], [b2, n2]])
+    print 'oddsratio: %f, pvalue: %f' % (oddsratio, pvalue)
 
     print 'Finished:', datetime.datetime.now().isoformat()
