@@ -13,6 +13,7 @@ class GeneDatabase(object):
         """
         self.taxonomy_id = taxonomy_id
         self.gene_index = {}
+        self.name_index = {}
         self.chr_index = {}
 
     def load_mart_export(self, mart_file):
@@ -35,6 +36,7 @@ class GeneDatabase(object):
             gene = Gene(id=toks[0], name=toks[5], chr=chr, start=int(toks[2]), end=int(toks[3]),
                         strand=int(toks[4]), type=toks[6])
             self.gene_index[gene.id] = gene
+            self.name_index[gene.name.upper()] = gene
             chr_list = self.chr_index.get(gene.chr, [])  # create if new
             self.chr_index[gene.chr] = chr_list
             chr_list.append(gene)
@@ -57,3 +59,6 @@ class GeneDatabase(object):
             if db_id not in gene_ids:
                 diff_set.append(db_id)
         return diff_set
+
+    def get_by_name(self, name):
+        return self.name_index.get(name.upper())
