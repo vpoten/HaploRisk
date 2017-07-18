@@ -144,7 +144,7 @@ if __name__ == "__main__":
 
     enrichr_path = os.path.join(base_path, 'enrichr')
     lib_files = EnrichR.list_libraries(enrichr_path)
-    # lib_files = filter(lambda n: n == 'Single_Gene_Perturbations_from_GEO_down.txt.gz', lib_files)
+    lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
     lib_results = {}
 
     for name in lib_files:
@@ -156,7 +156,7 @@ if __name__ == "__main__":
     f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
     for lib_name in lib_results:
         for res in lib_results[lib_name]:
-            f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f' % res)
+            f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\n' % res)
     f.close()
 
     print 'Finished:', datetime.datetime.now().isoformat()
