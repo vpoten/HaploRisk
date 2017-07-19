@@ -107,7 +107,7 @@ def test1():
 
 def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05):
     data_lib = EnrichR.load_library(file_name)
-    lib_name = file_name[:-7]  # remove '.txt.gz'
+    lib_name = os.path.basename(file_name[:-7])  # remove '.txt.gz'
     results = []
 
     for record in data_lib:
@@ -139,24 +139,26 @@ if __name__ == "__main__":
     snps_ids = load_lines(os.path.join(base_path, 'MS.txt'))
     regions = create_snp_regions(snps_ids)
     genes_db = create_gene_db('9606', os.path.join(base_path, 'GRCh38/mart_export.txt.gz'))
-    wsize = 500000.0
-    wsize_str = human_format(wsize)
 
     enrichr_path = os.path.join(base_path, 'enrichr')
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
-    lib_results = {}
+    wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
 
-    for name in lib_files:
-        lib_name = name[:-7]  # remove '.txt.gz'
-        res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
-        print '%i matches in %s' % (len(res), lib_name)
-        lib_results[lib_name] = res
+    for wsize in wsizes:
+        wsize_str = human_format(wsize)
+        lib_results = {}
 
-    f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
-    for lib_name in lib_results:
-        for res in lib_results[lib_name]:
-            f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\n' % res)
-    f.close()
+        for name in lib_files:
+            lib_name = name[:-7]  # remove '.txt.gz'
+            res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
+            print '%i matches in %s' % (len(res), lib_name)
+            lib_results[lib_name] = res
+
+        f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
+        for lib_name in lib_results:
+            for res in lib_results[lib_name]:
+                f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\n' % res)
+        f.close()
 
     print 'Finished:', datetime.datetime.now().isoformat()
