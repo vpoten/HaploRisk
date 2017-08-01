@@ -4,6 +4,7 @@ from classes.ensembl_client import EnsemblRestClient
 from classes.gene_database import GeneDatabase
 from classes.enrichr import EnrichR
 import scipy.stats as stats
+from statsmodels.sandbox.stats.multicomp import multipletests
 
 
 def load_lines(file_name):
@@ -124,10 +125,19 @@ def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05):
         t = calc_genes_in_region_table(region, genes_db, gene_ids, wsize)
         oddsratio, pvalue = stats.fisher_exact(t)
 
-        if pvalue < pvalue_thr:
-            results.append((lib_name, record, t[0][0], t[0][1], t[1][0], t[1][1], oddsratio, pvalue))
+        results.append((lib_name, record, t[0][0], t[0][1], t[1][0], t[1][1], oddsratio, pvalue))
 
-    return results
+    # multiple test correction using FDR
+    pvals = map(lambda r: r[7], results)
+    vals = multipletests(pvals, alpha=pvalue_thr, method='fdr_bh')
+
+    # add corrected p-value to results and filter
+    results_corr = []
+    for i, res in enumerate(results):
+        if vals[0][i] is True:
+            results_corr.append(res + (vals[1][i],))
+
+    return results_corr
 
 
 if __name__ == "__main__":
@@ -143,7 +153,7 @@ if __name__ == "__main__":
     enrichr_path = os.path.join(base_path, 'enrichr')
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
-    wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
+    wsizes = [500000.0]  # [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
 
     for wsize in wsizes:
         wsize_str = human_format(wsize)
@@ -158,7 +168,7 @@ if __name__ == "__main__":
         f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
         for lib_name in lib_results:
             for res in lib_results[lib_name]:
-                f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\n' % res)
+                f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\t%f\n' % res)
         f.close()
 
     print 'Finished:', datetime.datetime.now().isoformat()
