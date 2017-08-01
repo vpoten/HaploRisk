@@ -134,8 +134,8 @@ def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05):
     # add corrected p-value to results and filter
     results_corr = []
     for i, res in enumerate(results):
-        if vals[0][i] is True:
-            results_corr.append(res + (vals[1][i],))
+        if vals[0][i]:
+            results_corr.append(res + ((vals[1][i]).item(),))
 
     return results_corr
 
