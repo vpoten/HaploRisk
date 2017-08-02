@@ -180,7 +180,7 @@ if __name__ == "__main__":
     enrichr_path = os.path.join(base_path, 'enrichr')
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
-    wsizes = [500000.0]  # [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
+    wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
 
     for wsize in wsizes:
         wsize_str = human_format(wsize)
@@ -189,7 +189,7 @@ if __name__ == "__main__":
         for name in lib_files:
             lib_name = name[:-7]  # remove '.txt.gz'
             res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
-            print '%i matches in %s' % (len(res), lib_name)
+            print '%i matches in %s, [%s]' % (len(res), lib_name, datetime.datetime.now().isoformat())
             lib_results[lib_name] = res
 
         f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
