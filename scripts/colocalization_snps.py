@@ -1,6 +1,7 @@
 import os
 import sys
 import datetime
+import itertools
 from classes.ensembl_client import EnsemblRestClient
 from classes.gene_database import GeneDatabase
 from classes.enrichr import EnrichR
@@ -209,7 +210,7 @@ if __name__ == "__main__":
             res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
             print '%i matches in %s, [%s]' % (len(res), lib_name, datetime.datetime.now().isoformat())
             lib_results[lib_name] = res
-            genes_in_regions += res[9]
+            genes_in_regions += list(itertools.chain.from_iterable(map(lambda r: r[9], res)))
 
         assoc = associate_genes_with_region(genes_in_regions, regions.get('GRCh38'), wsize)
 
