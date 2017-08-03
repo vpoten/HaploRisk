@@ -1,4 +1,5 @@
 import os
+import sys
 import datetime
 from classes.ensembl_client import EnsemblRestClient
 from classes.gene_database import GeneDatabase
@@ -35,13 +36,14 @@ def get_regions_from_ensembl_snps(snps):
     return regions
 
 
-def is_in_region(region, chr, start, end, wsize):
+def __is_in_region(region, chr, start, end, wsize):
     # checks whether a feature located at chr:start-end overlaps a region
     dist = wsize / 2
     positions = region.get(chr, [])
-    for pos in positions:
+    for pos_obj in positions:
+        pos = pos_obj['pos'] if type(pos_obj) is dict else pos_obj
         if abs(pos - start) < dist or abs(pos - end) < dist:
-            return pos
+            return pos_obj
     return None
 
 
@@ -50,11 +52,22 @@ def count_genes_in_region(genes, genes_db, region, wsize, add_to_list=None):
     count = 0
     for gene_id in genes:
         gene_data = genes_db.get_by_id(gene_id)
-        if is_in_region(region, gene_data.chr, gene_data.start, gene_data.end, wsize) is not None:
+        if __is_in_region(region, gene_data.chr, gene_data.start, gene_data.end, wsize) is not None:
             count += 1
             if type(add_to_list) is list:
                 add_to_list.append(gene_data)
     return count
+
+
+def associate_genes_with_region(genes_data, region, wsize):
+    assoc = {chr: [{'chr': chr, 'pos': pos, 'genes': set([])} for pos in region[chr]] for chr in region.keys()}
+    for gene_data in genes_data:
+        pos_obj = __is_in_region(assoc, gene_data.chr, gene_data.start, gene_data.end, wsize)
+        if pos_obj is not None:
+            pos_obj['genes'].add(gene_data)
+        else:
+            print 'warning: gene %s [%s] should be in a region' % (gene_data.name, gene_data.id)
+    return assoc
 
 
 def create_snp_regions(snps_ids):
@@ -115,6 +128,8 @@ def test1():
     table, match_genes = calc_genes_in_region_table(regions.get('GRCh38'), genes_db, gene_ids, wsize)
     oddsratio, pvalue = stats.fisher_exact(table)
 
+    assoc = associate_genes_with_region(match_genes, regions.get('GRCh38'), wsize)
+
     print 'b: %i, n: %i' % tuple(table[0])
     print 'B: %i, N: %i' % tuple(table[1])
     print 'oddsratio: %f, pvalue: %f' % (oddsratio, pvalue)
@@ -171,6 +186,7 @@ if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
 
     # test1()
+    # sys.exit(0)
 
     base_path = '/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion'
     snps_ids = load_lines(os.path.join(base_path, 'MS.txt'))
@@ -180,24 +196,39 @@ if __name__ == "__main__":
     enrichr_path = os.path.join(base_path, 'enrichr')
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
-    wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
+    # wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
+    wsizes = [500000.0]
 
     for wsize in wsizes:
         wsize_str = human_format(wsize)
         lib_results = {}
+        genes_in_regions = []
 
         for name in lib_files:
             lib_name = name[:-7]  # remove '.txt.gz'
             res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
             print '%i matches in %s, [%s]' % (len(res), lib_name, datetime.datetime.now().isoformat())
             lib_results[lib_name] = res
+            genes_in_regions += res[9]
 
+        assoc = associate_genes_with_region(genes_in_regions, regions.get('GRCh38'), wsize)
+
+        # write per library/study results
         f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
         for lib_name in lib_results:
             for res in lib_results[lib_name]:
                 f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\t%f\t' % res[:9])
                 # add matching genes at the end of the row (comma separated)
                 f.write('%s\n' % ','.join(map(lambda g: g.name, res[9])))
+        f.close()
+
+        # write per region gene matching
+        f = open(os.path.join(base_path, 'output_regions_%s.txt' % wsize_str), 'w')
+        for chr in assoc:
+            for pos_obj in assoc[chr]:
+                f.write('%s\t%i\t%i\t' % (pos_obj['chr'], pos_obj['pos'], len(pos_obj['genes'])))
+                # add matching genes at the end of the row (comma separated)
+                f.write('%s\n' % ','.join(map(lambda g: g.name, pos_obj['genes'])))
         f.close()
 
     print 'Finished:', datetime.datetime.now().isoformat()
