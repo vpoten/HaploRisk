@@ -264,7 +264,7 @@ if __name__ == "__main__":
 
         # write per region gene matching
         f = open(os.path.join(base_path, 'output_regions_by_gene_count_%s.txt' % wsize_str), 'w')
-        f.write('#genes\t#regions')
+        f.write('#genes\t#regions\n')
         for val in regions_by_gene_count:
             f.write('%i\t%i\n' % val)
         f.close()
