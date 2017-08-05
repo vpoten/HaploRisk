@@ -8,6 +8,8 @@ from classes.enrichr import EnrichR
 import scipy.stats as stats
 from statsmodels.sandbox.stats.multicomp import multipletests
 
+VALID_CHRs = [str(i) for i in range(1, 23)] + ['X', 'Y']
+
 
 def load_lines(file_name):
     # read lines from file and returns them in a list
@@ -27,6 +29,8 @@ def get_regions_from_ensembl_snps(snps):
         for mapping in mappings:
             pos = mapping['start']
             chr = str(mapping['seq_region_name'])
+            if chr not in VALID_CHRs:
+                continue
             assembly = mapping['assembly_name']
             reg_assembly = regions.get(assembly, {})  # create a new one if not exists
             regions[assembly] = reg_assembly  # assign to ensure creation
@@ -69,6 +73,30 @@ def associate_genes_with_region(genes_data, region, wsize):
         else:
             print 'warning: gene %s [%s] should be in a region' % (gene_data.name, gene_data.id)
     return assoc
+
+
+def calc_regions_by_gene_count(assoc):
+    """
+    calculates data table for graph: num_genes vs num_regions (how many regions have 1, 2, 3, ... genes)
+    :param assoc:
+    :return: an array of tuples (x, y) sorted by x
+    """
+    counts = {}
+    max_count = -1
+    for pos_list in assoc.values():
+        for pos_obj in pos_list:
+            num_genes = len(pos_obj['genes'])
+            if num_genes > max_count:
+                max_count = num_genes
+            val = counts.get(num_genes, 0)
+            counts[num_genes] = val + 1
+
+    for i in range(0, max_count):
+        # fill gaps in counts dictionary
+        if i not in counts:
+            counts[i] = 0
+
+    return map(lambda n: (n, counts[n]), sorted(counts.keys()))
 
 
 def create_snp_regions(snps_ids):
@@ -130,6 +158,7 @@ def test1():
     oddsratio, pvalue = stats.fisher_exact(table)
 
     assoc = associate_genes_with_region(match_genes, regions.get('GRCh38'), wsize)
+    reg_by_gene = calc_regions_by_gene_count(assoc)
 
     print 'b: %i, n: %i' % tuple(table[0])
     print 'B: %i, N: %i' % tuple(table[1])
@@ -213,6 +242,7 @@ if __name__ == "__main__":
             genes_in_regions += list(itertools.chain.from_iterable(map(lambda r: r[9], res)))
 
         assoc = associate_genes_with_region(genes_in_regions, regions.get('GRCh38'), wsize)
+        regions_by_gene_count = calc_regions_by_gene_count(assoc)
 
         # write per library/study results
         f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
@@ -230,6 +260,13 @@ if __name__ == "__main__":
                 f.write('%s\t%i\t%i\t' % (pos_obj['chr'], pos_obj['pos'], len(pos_obj['genes'])))
                 # add matching genes at the end of the row (comma separated)
                 f.write('%s\n' % ','.join(map(lambda g: g.name, pos_obj['genes'])))
+        f.close()
+
+        # write per region gene matching
+        f = open(os.path.join(base_path, 'output_regions_by_gene_count_%s.txt' % wsize_str), 'w')
+        f.write('#genes\t#regions')
+        for val in regions_by_gene_count:
+            f.write('%i\t%i\n' % val)
         f.close()
 
     print 'Finished:', datetime.datetime.now().isoformat()
