@@ -2,9 +2,11 @@ import os
 import sys
 import datetime
 import itertools
+import json
 from classes.ensembl_client import EnsemblRestClient
 from classes.gene_database import GeneDatabase
 from classes.enrichr import EnrichR
+import numpy as np
 import scipy.stats as stats
 from statsmodels.sandbox.stats.multicomp import multipletests
 
@@ -212,6 +214,23 @@ def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05):
     return results_corr
 
 
+def __result_similarity(gene_res_1, gene_res_2):
+    set1 = set(gene_res_1)
+    set2 = set(gene_res_2)
+    total = len(set1.union(set2))
+    common = len(set1.intersection(set2))
+    return common / float(total)
+
+
+def __calc_similarities(results):
+    num = len(results)
+    sims = np.zeros((num, num))
+    for i in range(0, num):
+        for j in range(i, num):
+            sims[i][j] = __result_similarity(results[i][9], results[j][9]) if i != j else 1.0
+    return sims
+
+
 if __name__ == "__main__":
     print 'Started:', datetime.datetime.now().isoformat()
 
@@ -233,16 +252,19 @@ if __name__ == "__main__":
         wsize_str = human_format(wsize)
         lib_results = {}
         genes_in_regions = []
+        results_all = []
 
         for name in lib_files:
             lib_name = name[:-7]  # remove '.txt.gz'
             res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
             print '%i matches in %s, [%s]' % (len(res), lib_name, datetime.datetime.now().isoformat())
             lib_results[lib_name] = res
+            results_all += res
             genes_in_regions += list(itertools.chain.from_iterable(map(lambda r: r[9], res)))
 
         assoc = associate_genes_with_region(genes_in_regions, regions.get('GRCh38'), wsize)
         regions_by_gene_count = calc_regions_by_gene_count(assoc)
+        similarities = __calc_similarities(results_all)
 
         # write per library/study results
         f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
@@ -262,11 +284,34 @@ if __name__ == "__main__":
                 f.write('%s\n' % ','.join(map(lambda g: g.name, pos_obj['genes'])))
         f.close()
 
-        # write per region gene matching
+        # write #genes vs #regions data table
         f = open(os.path.join(base_path, 'output_regions_by_gene_count_%s.txt' % wsize_str), 'w')
         f.write('#genes\t#regions\n')
         for val in regions_by_gene_count:
             f.write('%i\t%i\n' % val)
+        f.close()
+
+        # write similarities
+        f = open(os.path.join(base_path, 'output_enrichr_similarities_%s.txt' % wsize_str), 'w')
+        f.write('A\tB\tSim\n')
+        num = similarities.shape[0]
+        for i in range(0, num):
+            label_i = results_all[i][0] + '|' + results_all[i][1]  # lib name + record name
+            for j in range(i, num):
+                label_j = results_all[j][0] + '|' + results_all[j][1]  # lib name + record name
+                f.write('%s\t%s\t%f\n' % (label_i, label_j, similarities[i][j]))
+        f.close()
+
+        # write similarities as json
+        num = similarities.shape[0]
+        sim_dict = {'records': [], 'similarities': []}
+        for i in range(0, num):
+            sim_dict['records'].append({'idx': i, 'lib': results_all[i][0], 'name': results_all[i][1]})
+            for j in range(i, num):
+                sim_dict['similarities'].append({'x': i, 'y': j, 'val': similarities[i][j]})
+
+        f = open(os.path.join(base_path, 'output_enrichr_similarities_%s.json' % wsize_str), 'w')
+        json.dump(sim_dict, f)
         f.close()
 
     print 'Finished:', datetime.datetime.now().isoformat()
