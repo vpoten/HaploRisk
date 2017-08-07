@@ -247,8 +247,8 @@ if __name__ == "__main__":
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
     lib_files = sorted(lib_files)
-    # wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
-    wsizes = [500000.0]
+    wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
+    # wsizes = [500000.0]
 
     for wsize in wsizes:
         wsize_str = human_format(wsize)
@@ -269,6 +269,7 @@ if __name__ == "__main__":
         similarities = __calc_similarities(results_all)
 
         # write per library/study results
+        f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
         for res in results_all:
             f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\t%f\t' % res[:9])
             # add matching genes at the end of the row (comma separated)
@@ -318,6 +319,6 @@ if __name__ == "__main__":
         # generate similarity html graph
         sim_out_html_file = os.path.join(base_path, 'output_enrichr_similarities_%s.html' % wsize_str)
         sim_graph_title = 'Enrichr similarities %s' % wsize_str
-        generate_similarity_graph(sim_json_file, sim_out_html_file, title=sim_graph_title, show_plot=False)
+        generate_similarity_graph(sim_json_file, sim_out_html_file, title=sim_graph_title)
 
     print 'Finished:', datetime.datetime.now().isoformat()

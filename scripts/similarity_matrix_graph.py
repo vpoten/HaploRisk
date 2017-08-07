@@ -5,7 +5,7 @@ from bokeh.plotting import figure, show, output_file
 from bokeh.models import HoverTool, ColumnDataSource, LinearColorMapper
 
 
-def generate_similarity_graph(sim_input_json_file, sim_out_html_file, title="similarity matrix", show_plot=True):
+def generate_similarity_graph(sim_input_json_file, sim_out_html_file, title="similarity matrix"):
     data = json.load(open(sim_input_json_file))
     records = data['records']
 
@@ -65,9 +65,7 @@ def generate_similarity_graph(sim_input_json_file, sim_out_html_file, title="sim
     ]
 
     output_file(sim_out_html_file, title=title)
-
-    if show_plot is True:
-        show(p)  # show the plot
+    show(p)  # show the plot
 
 
 if __name__ == "__main__":
