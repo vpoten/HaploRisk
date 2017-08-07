@@ -1,45 +1,45 @@
 import numpy as np
-
+import json
+import os
 from bokeh.plotting import figure, show, output_file
-from bokeh.models import HoverTool, ColumnDataSource
-from bokeh.sampledata.les_mis import data
+from bokeh.models import HoverTool, ColumnDataSource, LinearColorMapper
 
 
-if __name__ == "__main__":
-    nodes = data['nodes']
-    names = [node['name'] for node in sorted(data['nodes'], key=lambda x: x['group'])]
+def generate_similarity_graph(sim_input_json_file, sim_out_html_file, title="similarity matrix", show_plot=True):
+    data = json.load(open(sim_input_json_file))
+    records = data['records']
 
-    N = len(nodes)
-    counts = np.zeros((N, N))
-    for link in data['links']:
-        counts[link['source'], link['target']] = link['value']
-        counts[link['target'], link['source']] = link['value']
+    N = len(records)
+    similarities = np.zeros((N, N))
+    max_sim = 0
+    for val in data['similarities']:
+        sim = val['val'] if val['x'] != val['y'] else 0
+        if sim > max_sim:
+            max_sim = sim
+        similarities[val['x']][val['y']] = similarities[val['y']][val['x']] = sim
 
-    colormap = ["#444444", "#a6cee3", "#1f78b4", "#b2df8a", "#33a02c", "#fb9a99",
-                "#e31a1c", "#fdbf6f", "#ff7f00", "#cab2d6", "#6a3d9a"]
+    colors = ["#75968f", "#a5bab7", "#c9d9d3", "#e2e2e2", "#dfccce", "#ddb7b1", "#cc7878", "#933b41", "#550b1d"]
+    mapper = LinearColorMapper(palette=colors, low=0.0, high=max_sim)
+
+    names = [str(i) for i in range(0, N)]
 
     xname = []
     yname = []
-    color = []
-    alpha = []
-    for i, node1 in enumerate(nodes):
-        for j, node2 in enumerate(nodes):
-            xname.append(node1['name'])
-            yname.append(node2['name'])
-
-            alpha.append(min(counts[i, j] / 4.0, 0.9) + 0.1)
-
-            if node1['group'] == node2['group']:
-                color.append(colormap[node1['group']])
-            else:
-                color.append('lightgrey')
+    xlabel = []
+    ylabel = []
+    for i in range(0, N):
+        for j in range(0, N):
+            xname.append(str(i))
+            xlabel.append(records[i]['name'])
+            yname.append(str(j))
+            ylabel.append(records[j]['name'])
 
     source = ColumnDataSource(data=dict(
         xname=xname,
         yname=yname,
-        colors=color,
-        alphas=alpha,
-        count=counts.flatten(),
+        xlabel=xlabel,
+        ylabel=ylabel,
+        similarity=similarities.flatten(),
     ))
 
     p = figure(title="Similarity matrix",
@@ -55,15 +55,23 @@ if __name__ == "__main__":
     p.axis.major_label_standoff = 0
     p.xaxis.major_label_orientation = np.pi / 3
 
-    p.rect('xname', 'yname', 0.9, 0.9, source=source,
-           color='colors', alpha='alphas', line_color=None,
-           hover_line_color='black', hover_color='colors')
+    p.rect('xname', 'yname', 0.9, 0.9, source=source, line_color=None, hover_line_color='black',
+           fill_color={'field': 'similarity', 'transform': mapper})
 
     p.select_one(HoverTool).tooltips = [
-        ('names', '@yname, @xname'),
-        ('sim', '@sim'),
+        ('x', '@xlabel'),
+        ('y', '@ylabel'),
+        ('sim', '@similarity'),
     ]
 
-    output_file("sim_matrix.html", title="similarity matrix")
+    output_file(sim_out_html_file, title=title)
 
-    show(p)  # show the plot
+    if show_plot is True:
+        show(p)  # show the plot
+
+
+if __name__ == "__main__":
+    base_path = '/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion/output'
+    sim_input_file = os.path.join(base_path, 'output_enrichr_similarities_10K.json')
+    sim_out_file = os.path.join(base_path, "sim_matrix.html")
+    generate_similarity_graph(sim_input_file, sim_out_file)

@@ -9,6 +9,7 @@ from classes.enrichr import EnrichR
 import numpy as np
 import scipy.stats as stats
 from statsmodels.sandbox.stats.multicomp import multipletests
+from scripts.similarity_matrix_graph import generate_similarity_graph
 
 VALID_CHRs = [str(i) for i in range(1, 23)] + ['X', 'Y']
 
@@ -245,6 +246,7 @@ if __name__ == "__main__":
     enrichr_path = os.path.join(base_path, 'enrichr')
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
+    lib_files = sorted(lib_files)
     # wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
     wsizes = [500000.0]
 
@@ -254,7 +256,7 @@ if __name__ == "__main__":
         genes_in_regions = []
         results_all = []
 
-        for name in lib_files:
+        for name in lib_files:  # Note: lib_files is sorted
             lib_name = name[:-7]  # remove '.txt.gz'
             res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
             print '%i matches in %s, [%s]' % (len(res), lib_name, datetime.datetime.now().isoformat())
@@ -267,12 +269,10 @@ if __name__ == "__main__":
         similarities = __calc_similarities(results_all)
 
         # write per library/study results
-        f = open(os.path.join(base_path, 'output_enrichr_%s.txt' % wsize_str), 'w')
-        for lib_name in lib_results:
-            for res in lib_results[lib_name]:
-                f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\t%f\t' % res[:9])
-                # add matching genes at the end of the row (comma separated)
-                f.write('%s\n' % ','.join(map(lambda g: g.name, res[9])))
+        for res in results_all:
+            f.write('%s\t%s\t%i\t%i\t%i\t%i\t%f\t%f\t%f\t' % res[:9])
+            # add matching genes at the end of the row (comma separated)
+            f.write('%s\n' % ','.join(map(lambda g: g.name, res[9])))
         f.close()
 
         # write per region gene matching
@@ -310,8 +310,14 @@ if __name__ == "__main__":
             for j in range(i, num):
                 sim_dict['similarities'].append({'x': i, 'y': j, 'val': similarities[i][j]})
 
-        f = open(os.path.join(base_path, 'output_enrichr_similarities_%s.json' % wsize_str), 'w')
+        sim_json_file = os.path.join(base_path, 'output_enrichr_similarities_%s.json' % wsize_str)
+        f = open(sim_json_file, 'w')
         json.dump(sim_dict, f)
         f.close()
+
+        # generate similarity html graph
+        sim_out_html_file = os.path.join(base_path, 'output_enrichr_similarities_%s.html' % wsize_str)
+        sim_graph_title = 'Enrichr similarities %s' % wsize_str
+        generate_similarity_graph(sim_json_file, sim_out_html_file, title=sim_graph_title, show_plot=False)
 
     print 'Finished:', datetime.datetime.now().isoformat()
