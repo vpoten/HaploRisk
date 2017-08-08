@@ -168,7 +168,7 @@ def test1():
     print 'oddsratio: %f, pvalue: %f' % (oddsratio, pvalue)
 
 
-def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05):
+def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05, record_filter=None):
     """
     Runs, for each record of a 'enrich_db table', a fisher test using 'calc_genes_in_region_table' contingency table
     :param file_name: full path to enrich_db table
@@ -176,13 +176,19 @@ def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05):
     :param genes_db:
     :param wsize: window size used to calculate region match (centered in a region)
     :param pvalue_thr: pvalue threshold for FDR
+    :param record_filter: lambda function for record filtering
     :return: a list of tuples (lib_name, record, b1, n1, b2, n2, oddsratio, pval, corr_pval, matching_genes)
     """
     data_lib = EnrichR.load_library(file_name)
     lib_name = os.path.basename(file_name[:-7])  # remove '.txt.gz'
     results = []
 
-    for record in data_lib:
+    if record_filter is not None:
+        selected_records = filter(lambda r: record_filter(r), data_lib.keys())
+    else:
+        selected_records = data_lib.keys()
+
+    for record in selected_records:
         # extract genes highlighted by the study
         gene_names = EnrichR.extract_gene_list(data_lib, record)
         gene_ids = []
@@ -247,8 +253,9 @@ if __name__ == "__main__":
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
     lib_files = sorted(lib_files)
-    wsizes = [1e6, 500000.0, 250000.0, 100000.0, 50000.0, 20000.0, 10000.0]
+    wsizes = [500000.0, 250000.0, 100000.0, 50000.0, 20000.0]
     # wsizes = [500000.0]
+    record_filter = lambda r: r.find('GSE50588') > -1
 
     for wsize in wsizes:
         wsize_str = human_format(wsize)
@@ -258,7 +265,8 @@ if __name__ == "__main__":
 
         for name in lib_files:  # Note: lib_files is sorted
             lib_name = name[:-7]  # remove '.txt.gz'
-            res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize)
+            res = enrichr_db_test(os.path.join(enrichr_path, name), regions.get('GRCh38'), genes_db, wsize,
+                                  record_filter=record_filter)
             print '%i matches in %s, [%s]' % (len(res), lib_name, datetime.datetime.now().isoformat())
             lib_results[lib_name] = res
             results_all += res
