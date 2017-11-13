@@ -12,6 +12,7 @@ class EnsemblRestClient(object):
         self.reqs_per_sec = reqs_per_sec
         self.req_count = 0
         self.last_req = 0
+        self.max_post = 200
 
     def perform_rest_action(self, endpoint, hdrs=None, params=None, post_data=None):
         if hdrs is None:
@@ -82,7 +83,15 @@ class EnsemblRestClient(object):
 
     def get_snps(self, ids, species='human'):
         ext = "/variation/" + species
-        snps = self.perform_rest_action(ext, hdrs={"Accept": "application/json"}, post_data={'ids': ids})
+        snps = {}
+        start = 0
+
+        while start < len(ids):
+            result = self.perform_rest_action(ext, hdrs={"Accept": "application/json"},
+                                              post_data={'ids': ids[start:start + self.max_post]})
+            start += len(result)
+            snps.update(result)
+
         return snps
 
 ########################################

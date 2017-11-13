@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 import datetime
 import itertools
@@ -12,6 +13,7 @@ from statsmodels.sandbox.stats.multicomp import multipletests
 from scripts.similarity_matrix_graph import generate_similarity_graph
 
 VALID_CHRs = [str(i) for i in range(1, 23)] + ['X', 'Y']
+WSIZES = [500000.0, 250000.0, 100000.0, 50000.0, 20000.0]
 
 
 def load_lines(file_name):
@@ -168,6 +170,39 @@ def test1():
     print 'oddsratio: %f, pvalue: %f' % (oddsratio, pvalue)
 
 
+def test_genes_vs_multiple_snps(gene_ids, input_path, output_path):
+    file_pattern = '(.+)\.txt'
+    prog = re.compile(file_pattern)
+
+    genes_db = create_gene_db('9606', os.path.join(input_path, 'GRCh38/mart_export.txt.gz'))
+
+    snp_files = [f for f in os.listdir(input_path) if os.path.isfile(os.path.join(input_path, f)) and prog.match(f)]
+    wsizes = WSIZES
+
+    for snp_file in snp_files:
+        disease = prog.match(snp_file).groups()[0]
+        snps_ids = load_lines(os.path.join(input_path, snp_file))
+        bad_ids = filter(lambda i: not i.startswith('rs'), snps_ids)
+        if bad_ids:
+            print 'Issues with snp ids for disease %s' % disease
+            continue
+        regions = create_snp_regions(snps_ids)
+
+        print '===== Test for disease: %s =====' % disease
+
+        for wsize in wsizes:
+            print '--- Window size = %s ---' % human_format(wsize)
+            table, match_genes = calc_genes_in_region_table(regions.get('GRCh38'), genes_db, gene_ids, wsize)
+            oddsratio, pvalue = stats.fisher_exact(table)
+            assoc = associate_genes_with_region(match_genes, regions.get('GRCh38'), wsize)
+            reg_by_gene = calc_regions_by_gene_count(assoc)
+
+            print 'b: %i, n: %i' % tuple(table[0])
+            print 'B: %i, N: %i' % tuple(table[1])
+            print 'oddsratio: %f, pvalue: %f' % (oddsratio, pvalue)
+            # TODO
+
+
 def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05, record_filter=None):
     """
     Runs, for each record of a 'enrich_db table', a fisher test using 'calc_genes_in_region_table' contingency table
@@ -238,13 +273,48 @@ def __calc_similarities(results):
     return sims
 
 
+def __write_similarities_output(base_path, wsize_str, similarities, results_all):
+    # write similarities
+    f = open(os.path.join(base_path, 'output_enrichr_similarities_%s.txt' % wsize_str), 'w')
+    f.write('A\tB\tSim\n')
+    num = similarities.shape[0]
+    for i in range(0, num):
+        label_i = results_all[i][0] + '|' + results_all[i][1]  # lib name + record name
+        for j in range(i, num):
+            label_j = results_all[j][0] + '|' + results_all[j][1]  # lib name + record name
+            f.write('%s\t%s\t%f\n' % (label_i, label_j, similarities[i][j]))
+    f.close()
+
+    # write similarities as json
+    num = similarities.shape[0]
+    sim_dict = {'records': [], 'similarities': []}
+    for i in range(0, num):
+        sim_dict['records'].append({'idx': i, 'lib': results_all[i][0], 'name': results_all[i][1]})
+        for j in range(i, num):
+            sim_dict['similarities'].append({'x': i, 'y': j, 'val': similarities[i][j]})
+
+    sim_json_file = os.path.join(base_path, 'output_enrichr_similarities_%s.json' % wsize_str)
+    f = open(sim_json_file, 'w')
+    json.dump(sim_dict, f)
+    f.close()
+
+    # generate similarity html graph
+    sim_out_html_file = os.path.join(base_path, 'output_enrichr_similarities_%s.html' % wsize_str)
+    sim_graph_title = 'Enrichr similarities %s' % wsize_str
+    generate_similarity_graph(sim_json_file, sim_out_html_file, title=sim_graph_title)
+
+
 if __name__ == "__main__":
-    print 'Started:', datetime.datetime.now().isoformat()
+    base_path = '/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion'
 
     # test1()
-    # sys.exit(0)
+    test_genes_vs_multiple_snps(load_lines(os.path.join(base_path, 'sp140_genes.txt')),
+                                os.path.join(base_path, 'snps_diseases'),
+                                os.path.join(base_path, 'snps_diseases/output'))
+    sys.exit(0)
 
-    base_path = '/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion'
+    print 'Started:', datetime.datetime.now().isoformat()
+
     snps_ids = load_lines(os.path.join(base_path, 'MS.txt'))
     regions = create_snp_regions(snps_ids)
     genes_db = create_gene_db('9606', os.path.join(base_path, 'GRCh38/mart_export.txt.gz'))
@@ -253,7 +323,7 @@ if __name__ == "__main__":
     lib_files = EnrichR.list_libraries(enrichr_path)
     lib_files = filter(lambda n: n.startswith('Single_Gene_Perturbations_from_GEO'), lib_files)
     lib_files = sorted(lib_files)
-    wsizes = [500000.0, 250000.0, 100000.0, 50000.0, 20000.0]
+    wsizes = WSIZES
     # wsizes = [500000.0]
     record_filter = lambda r: r.find('GSE50588') > -1
 
@@ -300,33 +370,7 @@ if __name__ == "__main__":
             f.write('%i\t%i\n' % val)
         f.close()
 
-        # write similarities
-        f = open(os.path.join(base_path, 'output_enrichr_similarities_%s.txt' % wsize_str), 'w')
-        f.write('A\tB\tSim\n')
-        num = similarities.shape[0]
-        for i in range(0, num):
-            label_i = results_all[i][0] + '|' + results_all[i][1]  # lib name + record name
-            for j in range(i, num):
-                label_j = results_all[j][0] + '|' + results_all[j][1]  # lib name + record name
-                f.write('%s\t%s\t%f\n' % (label_i, label_j, similarities[i][j]))
-        f.close()
-
-        # write similarities as json
-        num = similarities.shape[0]
-        sim_dict = {'records': [], 'similarities': []}
-        for i in range(0, num):
-            sim_dict['records'].append({'idx': i, 'lib': results_all[i][0], 'name': results_all[i][1]})
-            for j in range(i, num):
-                sim_dict['similarities'].append({'x': i, 'y': j, 'val': similarities[i][j]})
-
-        sim_json_file = os.path.join(base_path, 'output_enrichr_similarities_%s.json' % wsize_str)
-        f = open(sim_json_file, 'w')
-        json.dump(sim_dict, f)
-        f.close()
-
-        # generate similarity html graph
-        sim_out_html_file = os.path.join(base_path, 'output_enrichr_similarities_%s.html' % wsize_str)
-        sim_graph_title = 'Enrichr similarities %s' % wsize_str
-        generate_similarity_graph(sim_json_file, sim_out_html_file, title=sim_graph_title)
+        # Skip similarities output
+        # __write_similarities_output(base_path, wsize_str, similarities, results_all)
 
     print 'Finished:', datetime.datetime.now().isoformat()
