@@ -172,7 +172,9 @@ def test1():
 
 def test_genes_vs_multiple_snps(gene_ids, input_path, output_path):
     file_pattern = '(.+)\.txt'
+    ll_ids_pattern = '"([\w\s;]+)"'
     prog = re.compile(file_pattern)
+    ll_prog = re.compile(ll_ids_pattern)
 
     genes_db = create_gene_db('9606', os.path.join(input_path, 'GRCh38/mart_export.txt.gz'))
 
@@ -182,25 +184,31 @@ def test_genes_vs_multiple_snps(gene_ids, input_path, output_path):
     for snp_file in snp_files:
         disease = prog.match(snp_file).groups()[0]
         snps_ids = load_lines(os.path.join(input_path, snp_file))
-        bad_ids = filter(lambda i: not i.startswith('rs'), snps_ids)
-        if bad_ids:
-            print 'Issues with snp ids for disease %s' % disease
-            continue
-        regions = create_snp_regions(snps_ids)
+        good_ids = filter(lambda i: i.startswith('rs'), snps_ids)
+        ld_ids = filter(lambda i: ll_prog.match(i), snps_ids)
+        ld_ids = map(lambda i: ll_prog.match(i).groups()[0].split(';')[0], ld_ids)
+        regions = create_snp_regions(good_ids + ld_ids)
 
-        print '===== Test for disease: %s =====' % disease
+        print '\n===== Test for disease: %s =====' % disease
 
         for wsize in wsizes:
-            print '--- Window size = %s ---' % human_format(wsize)
+            wsize_str = human_format(wsize)
+            print '--- Window size = %s ---' % wsize_str
             table, match_genes = calc_genes_in_region_table(regions.get('GRCh38'), genes_db, gene_ids, wsize)
             oddsratio, pvalue = stats.fisher_exact(table)
             assoc = associate_genes_with_region(match_genes, regions.get('GRCh38'), wsize)
-            reg_by_gene = calc_regions_by_gene_count(assoc)
+            regions_by_gene_count = calc_regions_by_gene_count(assoc)
 
             print 'b: %i, n: %i' % tuple(table[0])
             print 'B: %i, N: %i' % tuple(table[1])
             print 'oddsratio: %f, pvalue: %f' % (oddsratio, pvalue)
-            # TODO
+
+            __write_per_region_gene_matching(
+                os.path.join(output_path, 'output_regions_%s_%s.txt' % (disease, wsize_str)), assoc)
+
+            __write_genes_vs_regions_table(
+                os.path.join(output_path, 'output_regions_by_gene_count_%s_%s.txt' % (disease, wsize_str)),
+                regions_by_gene_count)
 
 
 def enrichr_db_test(file_name, region, genes_db, wsize, pvalue_thr=0.05, record_filter=None):
@@ -304,6 +312,26 @@ def __write_similarities_output(base_path, wsize_str, similarities, results_all)
     generate_similarity_graph(sim_json_file, sim_out_html_file, title=sim_graph_title)
 
 
+def __write_per_region_gene_matching(out_file, assoc):
+    # write per region gene matching
+    f = open(out_file, 'w')
+    for chr in assoc:
+        for pos_obj in assoc[chr]:
+            f.write('%s\t%i\t%i\t' % (pos_obj['chr'], pos_obj['pos'], len(pos_obj['genes'])))
+            # add matching genes at the end of the row (comma separated)
+            f.write('%s\n' % ','.join(map(lambda g: g.name, pos_obj['genes'])))
+    f.close()
+
+
+def __write_genes_vs_regions_table(out_file, regions_by_gene_count):
+    # write #genes vs #regions data table
+    f = open(out_file, 'w')
+    f.write('#genes\t#regions\n')
+    for val in regions_by_gene_count:
+        f.write('%i\t%i\n' % val)
+    f.close()
+
+
 if __name__ == "__main__":
     base_path = '/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion'
 
@@ -355,20 +383,11 @@ if __name__ == "__main__":
         f.close()
 
         # write per region gene matching
-        f = open(os.path.join(base_path, 'output_regions_%s.txt' % wsize_str), 'w')
-        for chr in assoc:
-            for pos_obj in assoc[chr]:
-                f.write('%s\t%i\t%i\t' % (pos_obj['chr'], pos_obj['pos'], len(pos_obj['genes'])))
-                # add matching genes at the end of the row (comma separated)
-                f.write('%s\n' % ','.join(map(lambda g: g.name, pos_obj['genes'])))
-        f.close()
+        __write_per_region_gene_matching(os.path.join(base_path, 'output_regions_%s.txt' % wsize_str), assoc)
 
         # write #genes vs #regions data table
-        f = open(os.path.join(base_path, 'output_regions_by_gene_count_%s.txt' % wsize_str), 'w')
-        f.write('#genes\t#regions\n')
-        for val in regions_by_gene_count:
-            f.write('%i\t%i\n' % val)
-        f.close()
+        __write_genes_vs_regions_table(os.path.join(base_path, 'output_regions_by_gene_count_%s.txt' % wsize_str),
+                                       regions_by_gene_count)
 
         # Skip similarities output
         # __write_similarities_output(base_path, wsize_str, similarities, results_all)
