@@ -7,23 +7,25 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 
-def create_graph_from_go_similarity(sim_input_json_file, node_label_formatter=None):
+def create_graph_from_go_similarity(sim_input_json_file, node_label=None):
     data = json.load(open(sim_input_json_file))
 
     # get feature names and sort them
     names = set(map(lambda d: d['product1']['name'], data))
     names.update(set(map(lambda d: d['product2']['name'], data)))
-    if node_label_formatter is not None:
-        names = map(lambda n: node_label_formatter(n), names)
+    if node_label is None:
+        node_label = __default_node_label
+
+    names = map(lambda n: node_label(n), names)
     names = sorted(names)
 
     G = nx.Graph()
     G.add_nodes_from(names)
 
     # add edges to the graph (distance < 1)
-    edges = filter(lambda t: t[2] < 1.0 and t[0] != t[1],
-                   map(lambda d: (d['product1']['name'], d['product2']['name'], 1.0 - d['similarity']),
-                       data))
+    edges = map(lambda d: (node_label(d['product1']['name']), node_label(d['product2']['name']), 1.0 - d['similarity']),
+                data)
+    edges = filter(lambda t: t[2] < 1.0 and t[0] != t[1], edges)
 
     G.add_weighted_edges_from(edges)
 
@@ -39,6 +41,10 @@ def draw_graph(G):
     # nx.draw_shell(G, **options)
     nx.draw_kamada_kawai(G, **options)
     plt.show()
+
+
+def __default_node_label(name):
+    return name
 
 
 def __node_label_enrichr(name):
@@ -96,7 +102,7 @@ if __name__ == "__main__":
     sim_files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f)) and prog.match(f)]
 
     graphs = {sim_file: create_graph_from_go_similarity(os.path.join(base_path, sim_file),
-                                                        node_label_formatter=__node_label_enrichr) for sim_file in
+                                                        node_label=__node_label_enrichr) for sim_file in
               sim_files}
 
     analyze_graph_connectivity(graphs)
