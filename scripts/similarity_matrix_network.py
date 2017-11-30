@@ -2,29 +2,36 @@ import json
 import os
 import re
 import itertools
+import math
 
 import networkx as nx
 import matplotlib.pyplot as plt
 
 
-def create_graph_from_go_similarity(sim_input_json_file, node_label=None):
+def __dist_func(val):
+    return max(1.0 - val, 1e-6)
+
+
+def create_graph_from_go_similarity(sim_input_json_file, _label=None):
     data = json.load(open(sim_input_json_file))
 
     # get feature names and sort them
     names = set(map(lambda d: d['product1']['name'], data))
     names.update(set(map(lambda d: d['product2']['name'], data)))
-    if node_label is None:
-        node_label = __default_node_label
 
-    names = map(lambda n: node_label(n), names)
+    if _label is None:
+        _label = __default_node_label
+
+    names = map(lambda n: _label(n), names)
     names = sorted(names)
 
     G = nx.Graph()
     G.add_nodes_from(names)
 
     # add edges to the graph (distance < 1)
-    edges = map(lambda d: (node_label(d['product1']['name']), node_label(d['product2']['name']), 1.0 - d['similarity']),
-                data)
+    edges = map(
+        lambda d: (_label(d['product1']['name']), _label(d['product2']['name']), __dist_func(d['similarity'])),
+        data)
     edges = filter(lambda t: t[2] < 1.0 and t[0] != t[1], edges)
 
     G.add_weighted_edges_from(edges)
@@ -35,11 +42,17 @@ def create_graph_from_go_similarity(sim_input_json_file, node_label=None):
 def draw_graph(G):
     options = {
         'with_labels': True,
-        'font_weight': 'bold'
+        'font_weight': 'bold',
+        'font_color': 'grey',
+        'node_size': 3000,
+        'edge_color': range(len(G.edges)),
+        'node_color': range(len(G.nodes)),
+        'edge_cmap': plt.cm.Blues,
+        'width': 2,
+        'cmap': plt.cm.Blues
     }
-    # nx.draw_networkx(G, **options)
-    # nx.draw_shell(G, **options)
-    nx.draw_kamada_kawai(G, **options)
+
+    nx.draw(G, pos=nx.spring_layout(G), **options)
     plt.show()
 
 
@@ -102,8 +115,7 @@ if __name__ == "__main__":
     sim_files = [f for f in os.listdir(base_path) if os.path.isfile(os.path.join(base_path, f)) and prog.match(f)]
 
     graphs = {sim_file: create_graph_from_go_similarity(os.path.join(base_path, sim_file),
-                                                        node_label=__node_label_enrichr) for sim_file in
-              sim_files}
+                                                        _label=__node_label_enrichr) for sim_file in sim_files}
 
     analyze_graph_connectivity(graphs)
 
