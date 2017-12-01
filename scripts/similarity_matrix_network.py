@@ -39,8 +39,8 @@ def create_graph_from_go_similarity(sim_input_json_file, _label=None):
     return G
 
 
-def draw_graph(G):
-    options = {
+def __graph_plot_options(G):
+    return {
         'with_labels': True,
         'font_weight': 'bold',
         'font_color': 'grey',
@@ -51,6 +51,13 @@ def draw_graph(G):
         'width': 2,
         'cmap': plt.cm.Blues
     }
+
+
+def draw_graph(G, title=None):
+    options = __graph_plot_options(G)
+
+    if title:
+        plt.title(title)
 
     nx.draw(G, pos=nx.spring_layout(G), **options)
     plt.show()
@@ -74,13 +81,17 @@ def print_connected_components(G):
     isolated = filter(lambda cmp: len(cmp) == 1, comp)
     print "%i connected components" % len(comp)
     print "%i isolated components" % len(isolated)
+    not_isolated = filter(lambda cmp: len(cmp) > 1, comp)
+    print "%i not isolated components:" % len(not_isolated)
+    for i, nodes in enumerate(not_isolated):
+        print '.. [%i] %i nodes' % (i + 1, len(nodes))
 
 
 def analyze_graph_connectivity(graphs):
     print ''
 
     for name in graphs:
-        print '.... Analyzing connectivity %s' % name
+        print '=> Analyzing connectivity %s' % name
         print_connected_components(graphs[name])
 
     isolateds = map(lambda name: sorted(nx.isolates(graphs[name])), graphs.keys())
@@ -94,16 +105,24 @@ def _not_isolated_nodes(G):
     return filter(lambda n: not nx.is_isolate(G, n), G.nodes)
 
 
-def analyze_cliques(graphs):
+def find_cliques(graphs):
+    return {name: list(nx.find_cliques(graphs[name])) for name in graphs}
+
+
+def analyze_cliques(cliques):
     print ''
 
-    for name in graphs:
-        print '.... Analyzing cliques %s' % name
-        cliques = list(nx.find_cliques(graphs[name]))
-        print "%i maximal cliques found" % len(cliques)
+    for name in cliques:
+        print '=> Analyzing cliques %s' % name
+        print "%i maximal cliques found" % len(cliques[name])
 
-        for i, clique in enumerate(cliques):
-            print '[%i] %i nodes' % (i + 1, len(clique))
+        for i, clique in enumerate(cliques[name]):
+            print '.. [%i] %i nodes' % (i + 1, len(clique))
+
+
+def draw_cliques(G, cliques, title=None):
+    for i, clique in enumerate(cliques):
+        draw_graph(G.subgraph(clique), title="clique %i" % (i + 1))
 
 
 if __name__ == "__main__":
@@ -121,6 +140,11 @@ if __name__ == "__main__":
 
     graphs2 = {name: graphs[name].subgraph(_not_isolated_nodes(graphs[name])).copy() for name in graphs.keys()}
 
-    analyze_cliques(graphs2)
+    # find cliques for each graph
+    cliques = find_cliques(graphs2)
+    analyze_cliques(cliques)
 
-    draw_graph(graphs2['go_similarities_010_BP.json'])
+    # draw plots
+    graph_name = 'go_similarities_010_BP.json'
+    draw_graph(graphs2[graph_name], title=graph_name)
+    draw_cliques(graphs2[graph_name], cliques[graph_name], title=graph_name)
