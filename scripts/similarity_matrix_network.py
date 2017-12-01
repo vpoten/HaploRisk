@@ -2,7 +2,6 @@ import json
 import os
 import re
 import itertools
-import math
 
 import networkx as nx
 import matplotlib.pyplot as plt
@@ -53,14 +52,20 @@ def __graph_plot_options(G):
     }
 
 
-def draw_graph(G, title=None):
-    options = __graph_plot_options(G)
+def draw_graph(G, title=None, show=True, options=None):
+    default_options = __graph_plot_options(G)
+
+    if options is not None:
+        # update default options
+        default_options.update(options)
 
     if title:
         plt.title(title)
 
-    nx.draw(G, pos=nx.spring_layout(G), **options)
-    plt.show()
+    nx.draw(G, pos=nx.spring_layout(G), **default_options)
+
+    if show is True:
+        plt.show()
 
 
 def __default_node_label(name):
@@ -121,8 +126,30 @@ def analyze_cliques(cliques):
 
 
 def draw_cliques(G, cliques, title=None):
+    nrows = 1
+    ncols = 1
+    iter = 0
+
+    # find the number of rows and columns to draw the cliques on the same figure
+    while nrows * ncols < len(cliques):
+        if iter % 2 == 0:
+            nrows += 1
+        else:
+            ncols += 1
+        iter += 1
+
+    options = {
+        'font_size': 9,
+        'node_size': 1200
+    }
+
     for i, clique in enumerate(cliques):
-        draw_graph(G.subgraph(clique), title="clique %i" % (i + 1))
+        plt.subplot(nrows * 100 + ncols * 10 + i + 1)
+        if title:
+            plt.title(title + ' clique [%i]' % (i + 1))
+        draw_graph(G.subgraph(clique), show=False, options=options)
+
+    plt.show()
 
 
 if __name__ == "__main__":
