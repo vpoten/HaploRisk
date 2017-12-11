@@ -152,6 +152,13 @@ def draw_cliques(G, cliques, title=None):
     plt.show()
 
 
+def print_cliques(cliques, name):
+    print '=> Cliques for %s:' % name
+
+    for i, clique in enumerate(cliques):
+        print '%i\t%s' % (i+1, ','.join(clique))
+
+
 if __name__ == "__main__":
     base_path = '/home/victor/Escritorio/Genotipado_Alternativo/colocalizacion/go_distances'
 
@@ -175,3 +182,5 @@ if __name__ == "__main__":
     graph_name = 'go_similarities_010_BP.json'
     draw_graph(graphs2[graph_name], title=graph_name)
     draw_cliques(graphs2[graph_name], cliques[graph_name], title=graph_name)
+
+    print_cliques(cliques[graph_name], graph_name)
