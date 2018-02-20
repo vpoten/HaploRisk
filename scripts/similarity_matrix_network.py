@@ -92,6 +92,14 @@ def print_connected_components(G):
         print '.. [%i] %i nodes' % (i + 1, len(nodes))
 
 
+def print_isolated(G):
+    comp = list(nx.connected_components(G))
+    isolated = filter(lambda cmp: len(cmp) == 1, comp)
+    print "=> %i isolated components:" % len(isolated)
+    for comp in isolated:
+        print list(comp)[0]
+
+
 def analyze_graph_connectivity(graphs):
     print ''
 
@@ -156,7 +164,7 @@ def print_cliques(cliques, name):
     print '=> Cliques for %s:' % name
 
     for i, clique in enumerate(cliques):
-        print '%i\t%s' % (i+1, ','.join(clique))
+        print '%i\t%s' % (i + 1, ','.join(clique))
 
 
 if __name__ == "__main__":
@@ -180,7 +188,8 @@ if __name__ == "__main__":
 
     # draw plots
     graph_name = 'go_similarities_010_BP.json'
-    draw_graph(graphs2[graph_name], title=graph_name)
-    draw_cliques(graphs2[graph_name], cliques[graph_name], title=graph_name)
+    # draw_graph(graphs2[graph_name], title=graph_name)
+    # draw_cliques(graphs2[graph_name], cliques[graph_name], title=graph_name)
 
     print_cliques(cliques[graph_name], graph_name)
+    print_isolated(graphs[graph_name])
